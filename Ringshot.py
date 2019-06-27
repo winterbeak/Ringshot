@@ -58,7 +58,7 @@ while True:
     mouse_release = False
     mouse_click = False
 
-    player.update_position(slowmo_factor)
+    player.update_body(slowmo_factor)
 
     player.draw_debug(final_display)
     screen_update()

@@ -6,6 +6,7 @@ import geometry
 class Ball:
     """A simulated ball that experiences gravity and rolls."""
     DEBUG_COLOR = constants.MAGENTA
+    BLIP_COLOR = constants.CYAN
 
     def __init__(self, position, radius):
         self.x = position[0]
@@ -16,10 +17,17 @@ class Ball:
         self.y_acceleration = 0.0
         self.position = position
         self.radius = radius
+        self.angle = 0
+        self.rotate_velocity = 0.0
 
     def draw_debug(self, surface):
         position = (int(self.x), int(self.y))  # pygame circles use integers
         pygame.draw.circle(surface, self.DEBUG_COLOR, position, self.radius)
+
+        blip_distance = geometry.simple_vector(self.angle, self.radius)
+        blip_x = int(self.x + blip_distance[0])
+        blip_y = int(self.y + blip_distance[1])
+        pygame.draw.circle(surface, self.BLIP_COLOR, (blip_x, blip_y), 1)
 
     def move(self, distance):
         """Instantly moves the ball a certain distance from its
@@ -34,8 +42,9 @@ class Ball:
         self.y = position[1]
         self.position = position
 
-    def update_position(self, slowmo_factor=1.0):
-        """Moves the ball according to its velocity and acceleration.
+    def update_body(self, slowmo_factor=1.0):
+        """Moves the ball according to its velocity and acceleration.  Also
+        rotates it based on how much it should rotate.
 
         slowmo_factor is how much the ball slows down due to slowmo."""
         self.y_acceleration = constants.GRAVITY
@@ -46,6 +55,8 @@ class Ball:
 
         self.x_velocity += self.x_acceleration / slowmo_factor
         self.y_velocity += self.y_acceleration / slowmo_factor
+
+        self.angle += self.rotate_velocity / slowmo_factor
 
     def launch(self, direction, power=12.0):
         vector = geometry.simple_vector(direction, power)
