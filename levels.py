@@ -33,7 +33,7 @@ def save_level(level_num, updated_level):
     file.close()
 
     level_array[level_num] = updated_level.to_string()
-    string = '*'.join(level_array)
+    string = '*' + '*'.join(level_array)
 
     file = open("levels.txt", 'w')
     file.write(string)

@@ -52,6 +52,40 @@ class Button:
             surface.blit(self.sprite, (self.x, self.y))
 
 
+class ButtonSet:
+    def __init__(self):
+        self.buttons = []
+        self.touch_mouse = -1
+        self.button_count = 0
+
+    def draw(self, surface):
+        for button in self.buttons:
+            button.draw(surface)
+
+    def update(self):
+        for button_id, button in enumerate(self.buttons):
+            button_touches = button.touches_point(events.mouse.position)
+            if button_touches and not button.hidden:
+                self.touch_mouse = button_id
+                button.highlight = True
+            else:
+                button.highlight = False
+
+    def add(self, button):
+        self.buttons.append(button)
+        self.button_count += 1
+
+    def pop(self):
+        self.buttons.pop()
+        self.button_count -= 1
+
+    def show(self, button_id):
+        self.buttons[button_id].hidden = False
+
+    def hide(self, button_id):
+        self.buttons[button_id].hidden = True
+
+
 def small_button(position):
     width = 30
     height = 30
@@ -82,9 +116,11 @@ class MainMenu:
         self.LEVELS_PER_PAGE = 8
         self.LEVEL_BUTTON_SPACE = 60
 
-        self.buttons = [small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT//2 - 10)),
-                        small_button((SCREEN_WIDTH // 2 - 10, 20)),
-                        small_button((SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT - 40))]
+        buttons = ButtonSet()
+        buttons.add(small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT//2 - 10)))
+        buttons.add(small_button((SCREEN_WIDTH // 2 - 10, 20)))
+        buttons.add(small_button((SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT - 40)))
+        self.buttons = buttons
 
         self.page = 0
         self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
@@ -93,37 +129,31 @@ class MainMenu:
         self.switch_to_editor = False
 
     def update_frame(self):
-        for button_id, button in enumerate(self.buttons):
-            button_touches = button.touches_point(events.mouse.position)
-            if button_touches and not button.hidden:
-                if events.mouse.released:
-                    if button_id == self.ADD:
-                        levels.make_new_level()
-                        self.change_page(self.last_page)
-                        self.update_level_buttons()
+        self.buttons.update()
+        if events.mouse.released:
+            if self.buttons.touch_mouse == self.ADD:
+                levels.make_new_level()
+                self.change_page(self.last_page)
+                self.update_level_buttons()
 
-                    elif button_id == self.UP:
-                        if self.page > 0:
-                            self.change_page(self.page - 1)
-                        else:
-                            self.change_page(self.last_page)
+            elif self.buttons.touch_mouse == self.UP:
+                if self.page > 0:
+                    self.change_page(self.page - 1)
+                else:
+                    self.change_page(self.last_page)
 
-                    elif button_id == self.DOWN:
-                        if self.page < self.last_page:
-                            self.change_page(self.page + 1)
-                        else:
-                            self.change_page(0)
+            elif self.buttons.touch_mouse == self.DOWN:
+                if self.page < self.last_page:
+                    self.change_page(self.page + 1)
+                else:
+                    self.change_page(0)
 
-                    elif button_id >= self.FIRST_LEVEL:
-                        self.switch_to_editor = True
-                        self.level_clicked = button_id
-                        return
+            elif self.buttons.touch_mouse >= self.FIRST_LEVEL:
+                self.switch_to_editor = True
+                self.level_clicked = self.buttons.touch_mouse
+                return
 
-                button.highlight = True
-            else:
-                button.highlight = False
-
-            button.draw(final_display)
+        self.buttons.draw(final_display)
 
     def change_page(self, page):
         """Switches the menu page to the specified page."""
@@ -132,15 +162,16 @@ class MainMenu:
         first_button = self.page * self.LEVELS_PER_PAGE + self.SPECIAL_BUTTONS
         last_button = first_button + self.LEVELS_PER_PAGE - 1
 
-        for button_id in range(self.FIRST_LEVEL, len(self.buttons)):
+        for button_id in range(self.FIRST_LEVEL, self.buttons.button_count):
             if first_button <= button_id <= last_button:
-                self.buttons[button_id].hidden = False
+                self.buttons.show(button_id)
             else:
-                self.buttons[button_id].hidden = True
+                self.buttons.hide(button_id)
 
     def update_level_buttons(self):
         """Reloads all the level buttons, even those not on the current page."""
-        self.buttons = self.buttons[0:self.FIRST_LEVEL]
+        while self.buttons.button_count > self.SPECIAL_BUTTONS:
+            self.buttons.pop()
 
         file = open("levels.txt", 'r')
         level_array = file.read().split('*')
@@ -154,7 +185,7 @@ class MainMenu:
             new_button = level_button((20, y), this_level, level_num)
             if level_num // self.LEVELS_PER_PAGE != self.page:
                 new_button.hidden = True
-            self.buttons.append(new_button)
+            self.buttons.add(new_button)
 
             y %= self.LEVEL_BUTTON_SPACE * self.LEVELS_PER_PAGE
             y += self.LEVEL_BUTTON_SPACE
@@ -181,9 +212,13 @@ class Editor:
             pygame.draw.line(self.grid_surface, color, start, end, 2)
 
         self.SAVE_AND_EXIT = 0
-        self.buttons = [small_button((20, SCREEN_HEIGHT - 40))]
+        self.buttons = ButtonSet()
+        self.buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
+
+        self.switch_to_menu = False
 
     def update_frame(self):
+        self.buttons.update()
         if events.keys.key_pressed:
             key_name = pygame.key.name(events.keys.key_pressed)
 
@@ -192,8 +227,15 @@ class Editor:
                 if 0 <= number_pressed < levels.BLOCK_TYPES:
                     self.holding_block = number_pressed
 
+        if events.mouse.released:
+            if self.buttons.touch_mouse == self.SAVE_AND_EXIT:
+                levels.save_level(self.level_num, self.level)
+                self.switch_to_menu = True
+                return
+
         final_display.blit(self.grid_surface, (0, 0))
         final_display.blit(self.level_surface, (0, 0))
+        self.buttons.draw(final_display)
 
 
 MENU = 0
@@ -214,6 +256,7 @@ while True:
         main_menu.update_frame()
 
         if main_menu.switch_to_editor:
+            main_menu.switch_to_editor = False
             current_screen = EDITOR
             editor.level_num = main_menu.level_clicked - 3
             editor.level = levels.load_level(editor.level_num)
@@ -223,5 +266,10 @@ while True:
 
     elif current_screen == EDITOR:
         editor.update_frame()
+
+        if editor.switch_to_menu:
+            editor.switch_to_menu = False
+            current_screen = MENU
+            main_menu.update_level_buttons()
 
     screen_update()
