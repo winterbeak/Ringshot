@@ -3,6 +3,7 @@ import pygame
 
 import constants
 import ball
+import events
 
 
 def screen_update():
@@ -26,23 +27,10 @@ SLOWMO_MAX = 8.0  # the largest factor of slowmo possible
 SPEEDUP_FACTOR = 0.05  # how much the slowmo effect "wears off" each frame
 
 while True:
-    for event in pygame.event.get():
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            mouse_held = True
-            mouse_click = True
+    events.update()
 
-        elif event.type == pygame.MOUSEBUTTONUP:
-            mouse_held = False
-            mouse_release = True
-
-        elif event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-
-    mouse_pos = pygame.mouse.get_pos()
-
-    if mouse_held:
-        if mouse_click:
+    if events.mouse.held:
+        if events.mouse.clicked:
             slowmo_factor = SLOWMO_MAX
 
         if slowmo_factor > 1.0:
@@ -51,12 +39,9 @@ while True:
             if slowmo_factor < 1.0:
                 slowmo_factor = 1.0
 
-    if mouse_release:
-        player.launch_towards(mouse_pos)
+    if events.mouse.released:
+        player.launch_towards(events.mouse.position)
         slowmo_factor = 1.0
-
-    mouse_release = False
-    mouse_click = False
 
     player.update_body(slowmo_factor)
 

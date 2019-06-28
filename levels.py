@@ -6,6 +6,8 @@ pygame.init()
 
 WIDTH = 50  # measured in tiles, not pixels
 HEIGHT = 50
+PIXEL_WIDTH = WIDTH * constants.TILE_WIDTH
+PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 
 BLOCK_TYPES = 2
 EMPTY = 0

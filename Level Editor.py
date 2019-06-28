@@ -1,13 +1,13 @@
 import pygame
-import sys
 
 import graphics
 import levels
 import constants
+import events
 
 
-SCREEN_WIDTH = 500
-SCREEN_HEIGHT = 500
+SCREEN_WIDTH = 600
+SCREEN_HEIGHT = 600
 SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
 
 pygame.init()
@@ -53,12 +53,12 @@ class Button:
 
 
 def small_button(position):
-    width = 20
-    height = 20
+    width = 30
+    height = 30
     return Button((position[0], position[1], width, height))
 
 
-def create_level_button(position, thumbnail_level, level_num):
+def level_button(position, thumbnail_level, level_num):
     width = SCREEN_WIDTH - 70
     height = 60
     button = Button((position[0], position[1], width, height))
@@ -79,7 +79,7 @@ class MainMenu:
         self.UP = 1
         self.DOWN = 2
         self.FIRST_LEVEL = 3
-        self.LEVELS_PER_PAGE = 5
+        self.LEVELS_PER_PAGE = 8
         self.LEVEL_BUTTON_SPACE = 60
 
         self.buttons = [small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT//2 - 10)),
@@ -93,19 +93,10 @@ class MainMenu:
         self.switch_to_editor = False
 
     def update_frame(self):
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_release = False
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONUP:
-                mouse_release = True
-
-            elif event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-
         for button_id, button in enumerate(self.buttons):
-            if button.touches_point(mouse_pos) and not button.hidden:
-                if mouse_release:
+            button_touches = button.touches_point(events.mouse.position)
+            if button_touches and not button.hidden:
+                if events.mouse.released:
                     if button_id == self.ADD:
                         levels.make_new_level()
                         self.change_page(self.last_page)
@@ -160,10 +151,10 @@ class MainMenu:
         for level_num, level_string in enumerate(level_array):
             this_level = levels.string_to_level(level_string)
 
-            level_button = create_level_button((20, y), this_level, level_num)
+            new_button = level_button((20, y), this_level, level_num)
             if level_num // self.LEVELS_PER_PAGE != self.page:
-                level_button.hidden = True
-            self.buttons.append(level_button)
+                new_button.hidden = True
+            self.buttons.append(new_button)
 
             y %= self.LEVEL_BUTTON_SPACE * self.LEVELS_PER_PAGE
             y += self.LEVEL_BUTTON_SPACE
@@ -171,56 +162,66 @@ class MainMenu:
         self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
 
 
-holding_block = levels.EMPTY
-level_surface = graphics.new_surface(SCREEN_SIZE)
+class Editor:
+    def __init__(self):
+        self.level = None
+        self.level_num = -1
+        self.holding_block = levels.EMPTY
+        self.level_surface = graphics.new_surface(constants.SCREEN_SIZE)
+        self.grid_surface = graphics.new_surface(constants.SCREEN_SIZE)
+        color = (30, 30, 30)
+        for row in range(levels.HEIGHT):
+            start = (0, row * constants.TILE_HEIGHT - 1)
+            end = (levels.PIXEL_WIDTH, row * constants.TILE_HEIGHT - 1)
+            pygame.draw.line(self.grid_surface, color, start, end, 2)
 
+        for column in range(levels.WIDTH):
+            start = (column * constants.TILE_WIDTH - 1, 0)
+            end = (column * constants.TILE_WIDTH - 1, levels.PIXEL_HEIGHT)
+            pygame.draw.line(self.grid_surface, color, start, end, 2)
 
-def editor_frame():
-    global holding_block
+        self.SAVE_AND_EXIT = 0
+        self.buttons = [small_button((20, SCREEN_HEIGHT - 40))]
 
-    number_pressed = -1
-    for event in pygame.event.get():
-        if event.type == pygame.MOUSEBUTTONUP:
-            mouse_release = True
+    def update_frame(self):
+        if events.keys.key_pressed:
+            key_name = pygame.key.name(events.keys.key_pressed)
 
-        elif event.type == pygame.KEYDOWN:
-            key_name = pygame.key.name(event.key)
             if key_name.isnumeric():
                 number_pressed = int(key_name)
+                if 0 <= number_pressed < levels.BLOCK_TYPES:
+                    self.holding_block = number_pressed
 
-        elif event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+        final_display.blit(self.grid_surface, (0, 0))
+        final_display.blit(self.level_surface, (0, 0))
 
-    if 0 <= number_pressed < levels.BLOCK_TYPES:
-        holding_block = number_pressed
 
-    final_display.blit(level_surface, (0, 0))
-
+MENU = 0
+EDITOR = 1
 
 main_menu = MainMenu()
 main_menu.update_level_buttons()
 main_menu.change_page(main_menu.last_page)
 
-MENU = 0
-EDITOR = 1
+editor = Editor()
 
 current_screen = MENU
-editor_level = None
-editor_level_num = 0
+
 while True:
+    events.update()
+
     if current_screen == MENU:
         main_menu.update_frame()
 
         if main_menu.switch_to_editor:
             current_screen = EDITOR
-            editor_level_num = main_menu.level_clicked - 3
-            editor_level = levels.load_level(editor_level_num)
+            editor.level_num = main_menu.level_clicked - 3
+            editor.level = levels.load_level(editor.level_num)
 
-            level_surface = graphics.new_surface(SCREEN_SIZE)
-            editor_level.draw_debug(level_surface, (0, 0))
+            editor.level_surface.fill(constants.TRANSPARENT)
+            editor.level.draw_debug(editor.level_surface, (0, 0))
 
     elif current_screen == EDITOR:
-        editor_frame()
+        editor.update_frame()
 
     screen_update()
