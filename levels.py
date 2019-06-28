@@ -7,8 +7,52 @@ pygame.init()
 WIDTH = 50  # measured in tiles, not pixels
 HEIGHT = 50
 
+BLOCK_TYPES = 2
 EMPTY = 0
 FULL_WALL = 1
+
+
+def make_new_level():
+    """Adds a new, completely empty level at the end of levels.txt."""
+    file = open("levels.txt", 'a')
+    string = "*" + Level().to_string()
+    file.write(string)
+    file.close()
+
+
+def save_level(level_num, updated_level):
+    """Replaces the level at index level_num with updated_level.
+
+    updated_level must be an instance of the Level class.
+    """
+    file = open("levels.txt", 'r')
+    level_array = file.read().split('*')
+    level_array.pop(0)
+    file.close()
+
+    level_array[level_num] = updated_level.to_string()
+    string = '*'.join(level_array)
+
+    file = open("levels.txt", 'w')
+    file.write(string)
+    file.close()
+
+
+def load_level(level_num):
+    """Returns the Level at the index level_num."""
+    file = open("levels.txt", 'r')
+    level_array = file.read().split('*')
+    level_array.pop(0)
+    file.close()
+
+    level = string_to_level(level_array[level_num])
+    return level
+
+
+def count_levels():
+    """Returns the number of levels in the file."""
+    file = open("levels.txt", 'r')
+    return file.read().count('*')
 
 
 def out_of_bounds(column, row):

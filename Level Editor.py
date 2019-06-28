@@ -2,16 +2,13 @@ import pygame
 import sys
 
 import graphics
-import level
+import levels
 import constants
 
 
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 500
 SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
-
-LEVELS_PER_PAGE = 5
-LEVEL_BUTTON_SPACE = 60  # vertical space a button takes up, including margins
 
 pygame.init()
 final_display = pygame.display.set_mode(SCREEN_SIZE)
@@ -55,7 +52,13 @@ class Button:
             surface.blit(self.sprite, (self.x, self.y))
 
 
-def create_level_button(position, thumbnail_level):
+def small_button(position):
+    width = 20
+    height = 20
+    return Button((position[0], position[1], width, height))
+
+
+def create_level_button(position, thumbnail_level, level_num):
     width = SCREEN_WIDTH - 70
     height = 60
     button = Button((position[0], position[1], width, height))
@@ -63,141 +66,161 @@ def create_level_button(position, thumbnail_level):
     thumbnail_position = (SCREEN_WIDTH - 120, 0)
     thumbnail_level.draw_thumbnail(button.sprite, thumbnail_position)
 
+    text = TAHOMA.render(str(level_num), False, constants.WHITE)
+    button.sprite.blit(text, (10, 10))
+
     return button
 
 
-def new_level():
-    file = open("levels.txt", 'a')
-    string = "*" + level.Level().to_string()
-    file.write(string)
-    file.close()
+class MainMenu:
+    def __init__(self):
+        self.SPECIAL_BUTTONS = 3
+        self.ADD = 0
+        self.UP = 1
+        self.DOWN = 2
+        self.FIRST_LEVEL = 3
+        self.LEVELS_PER_PAGE = 5
+        self.LEVEL_BUTTON_SPACE = 60
+
+        self.buttons = [small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT//2 - 10)),
+                        small_button((SCREEN_WIDTH // 2 - 10, 20)),
+                        small_button((SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT - 40))]
+
+        self.page = 0
+        self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
+
+        self.level_clicked = -1
+        self.switch_to_editor = False
+
+    def update_frame(self):
+        mouse_pos = pygame.mouse.get_pos()
+        mouse_release = False
+        for event in pygame.event.get():
+            if event.type == pygame.MOUSEBUTTONUP:
+                mouse_release = True
+
+            elif event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        for button_id, button in enumerate(self.buttons):
+            if button.touches_point(mouse_pos) and not button.hidden:
+                if mouse_release:
+                    if button_id == self.ADD:
+                        levels.make_new_level()
+                        self.change_page(self.last_page)
+                        self.update_level_buttons()
+
+                    elif button_id == self.UP:
+                        if self.page > 0:
+                            self.change_page(self.page - 1)
+                        else:
+                            self.change_page(self.last_page)
+
+                    elif button_id == self.DOWN:
+                        if self.page < self.last_page:
+                            self.change_page(self.page + 1)
+                        else:
+                            self.change_page(0)
+
+                    elif button_id >= self.FIRST_LEVEL:
+                        self.switch_to_editor = True
+                        self.level_clicked = button_id
+                        return
+
+                button.highlight = True
+            else:
+                button.highlight = False
+
+            button.draw(final_display)
+
+    def change_page(self, page):
+        """Switches the menu page to the specified page."""
+        self.page = page
+
+        first_button = self.page * self.LEVELS_PER_PAGE + self.SPECIAL_BUTTONS
+        last_button = first_button + self.LEVELS_PER_PAGE - 1
+
+        for button_id in range(self.FIRST_LEVEL, len(self.buttons)):
+            if first_button <= button_id <= last_button:
+                self.buttons[button_id].hidden = False
+            else:
+                self.buttons[button_id].hidden = True
+
+    def update_level_buttons(self):
+        """Reloads all the level buttons, even those not on the current page."""
+        self.buttons = self.buttons[0:self.FIRST_LEVEL]
+
+        file = open("levels.txt", 'r')
+        level_array = file.read().split('*')
+        level_array.pop(0)
+        file.close()
+
+        y = self.LEVEL_BUTTON_SPACE
+        for level_num, level_string in enumerate(level_array):
+            this_level = levels.string_to_level(level_string)
+
+            level_button = create_level_button((20, y), this_level, level_num)
+            if level_num // self.LEVELS_PER_PAGE != self.page:
+                level_button.hidden = True
+            self.buttons.append(level_button)
+
+            y %= self.LEVEL_BUTTON_SPACE * self.LEVELS_PER_PAGE
+            y += self.LEVEL_BUTTON_SPACE
+
+        self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
 
 
-def update_levels():
-    global menu_buttons
-    menu_buttons = menu_buttons[0 : MENU_FIRST_LEVEL]
-
-    file = open("levels.txt", 'r')
-
-    levels = file.read().split('*')
-    levels.pop(0)
-
-    y = LEVEL_BUTTON_SPACE
-    for level_num, level_string in enumerate(levels):
-        this_level = level.string_to_level(level_string)
-
-        level_button = create_level_button((20, y), this_level)
-        if level_num // LEVELS_PER_PAGE != menu_page:
-            level_button.hidden = True
-        menu_buttons.append(level_button)
-
-        y %= LEVEL_BUTTON_SPACE * LEVELS_PER_PAGE
-        y += LEVEL_BUTTON_SPACE
-
-    file.close()
+holding_block = levels.EMPTY
+level_surface = graphics.new_surface(SCREEN_SIZE)
 
 
-def save_level(updated_level, level_num):
-    file = open("levels.txt", 'r')
-    levels = file.read().split('*')
-    levels.pop(0)
-    file.close()
+def editor_frame():
+    global holding_block
 
-    levels[level_num] = updated_level.to_string()
-    string = '*'.join(levels)
-
-    file = open("levels.txt", 'w')
-    file.write(string)
-    file.close()
-
-
-menu_page = 0
-menu_buttons = [Button((SCREEN_WIDTH - 40, SCREEN_HEIGHT // 2 - 10, 20, 20)),
-                Button((SCREEN_WIDTH // 2 - 10, 20, 20, 20)),
-                Button((SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT - 40, 20, 20))]
-MENU_SPECIAL_BUTTONS = 3
-MENU_ADD = 0
-MENU_UP = 1
-MENU_DOWN = 2
-MENU_FIRST_LEVEL = 3
-
-
-def next_page():
-    """Hides the current page's levels, and shows the next page's levels."""
-    start = menu_page * LEVELS_PER_PAGE + MENU_SPECIAL_BUTTONS
-    end = (menu_page + 1) * LEVELS_PER_PAGE + MENU_SPECIAL_BUTTONS
-
-    for button_id in range(start, end):
-        menu_buttons[button_id].hidden = True
-
-        if button_id + LEVELS_PER_PAGE < len(menu_buttons):
-            menu_buttons[button_id + LEVELS_PER_PAGE].hidden = False
-
-
-def previous_page():
-    """Hides the current page's levels, and shows the previous page's levels."""
-    start = menu_page * LEVELS_PER_PAGE + MENU_SPECIAL_BUTTONS
-    end = (menu_page + 1) * LEVELS_PER_PAGE + MENU_SPECIAL_BUTTONS
-
-    for button_id in range(start, end):
-        if button_id < len(menu_buttons):
-            menu_buttons[button_id].hidden = True
-
-        menu_buttons[button_id - LEVELS_PER_PAGE].hidden = False
-
-
-def last_page():
-    total_levels = len(menu_buttons) - MENU_SPECIAL_BUTTONS
-
-    if total_levels == 0:
-        return 0
-    return (total_levels - 1) // LEVELS_PER_PAGE
-
-
-def menu_frame():
-    global current_screen
-    global menu_page
-
-    mouse_pos = pygame.mouse.get_pos()
-    mouse_release = False
+    number_pressed = -1
     for event in pygame.event.get():
         if event.type == pygame.MOUSEBUTTONUP:
             mouse_release = True
+
+        elif event.type == pygame.KEYDOWN:
+            key_name = pygame.key.name(event.key)
+            if key_name.isnumeric():
+                number_pressed = int(key_name)
 
         elif event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-    for button_id, button in enumerate(menu_buttons):
-        if button.touches_point(mouse_pos) and not button.hidden:
-            if mouse_release:
-                if button_id == MENU_ADD:
-                    new_level()
-                    menu_page = last_page()
-                    update_levels()
+    if 0 <= number_pressed < levels.BLOCK_TYPES:
+        holding_block = number_pressed
 
-                elif button_id == MENU_UP:
-                    if menu_page > 0:
-                        previous_page()
-                        menu_page -= 1
-
-                elif button_id == MENU_DOWN:
-                    if menu_page < last_page():
-                        next_page()
-                        menu_page += 1
-
-            button.highlight = True
-        else:
-            button.highlight = False
-
-        button.draw(final_display)
+    final_display.blit(level_surface, (0, 0))
 
 
-update_levels()
+main_menu = MainMenu()
+main_menu.update_level_buttons()
+main_menu.change_page(main_menu.last_page)
+
 MENU = 0
+EDITOR = 1
 
 current_screen = MENU
+editor_level = None
+editor_level_num = 0
 while True:
     if current_screen == MENU:
-        menu_frame()
+        main_menu.update_frame()
+
+        if main_menu.switch_to_editor:
+            current_screen = EDITOR
+            editor_level_num = main_menu.level_clicked - 3
+            editor_level = levels.load_level(editor_level_num)
+
+            level_surface = graphics.new_surface(SCREEN_SIZE)
+            editor_level.draw_debug(level_surface, (0, 0))
+
+    elif current_screen == EDITOR:
+        editor_frame()
+
     screen_update()
