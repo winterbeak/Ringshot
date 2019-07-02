@@ -63,13 +63,18 @@ class ButtonSet:
             button.draw(surface)
 
     def update(self):
+        touching_a_button = False
         for button_id, button in enumerate(self.buttons):
             button_touches = button.touches_point(events.mouse.position)
             if button_touches and not button.hidden:
+                touching_a_button = True
                 self.touch_mouse = button_id
                 button.highlight = True
             else:
                 button.highlight = False
+
+        if not touching_a_button:
+            self.touch_mouse = -1
 
     def add(self, button):
         self.buttons.append(button)
@@ -193,11 +198,34 @@ class MainMenu:
         self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
 
 
+def grid_tile_position(point):
+    """Returns the row and column of the tile that the point is on."""
+    column = point[0] // constants.TILE_WIDTH
+    row = point[1] // constants.TILE_HEIGHT
+
+    if not levels.out_of_bounds((column, row)):
+        return column, row
+    else:
+        return None
+
+
+def grid_pixel_position(point):
+    """Returns the top left corner of the tile that the point is on."""
+    tile_position = grid_tile_position(point)
+
+    if tile_position and not levels.out_of_bounds(tile_position):
+        x = tile_position[0] * constants.TILE_WIDTH
+        y = tile_position[1] * constants.TILE_HEIGHT
+        return x, y
+    else:
+        return None
+
+
 class Editor:
     def __init__(self):
         self.level = None
         self.level_num = -1
-        self.holding_block = levels.EMPTY
+        self.holding_tile = levels.EMPTY
         self.level_surface = graphics.new_surface(constants.SCREEN_SIZE)
         self.grid_surface = graphics.new_surface(constants.SCREEN_SIZE)
         color = (30, 30, 30)
@@ -224,8 +252,8 @@ class Editor:
 
             if key_name.isnumeric():
                 number_pressed = int(key_name)
-                if 0 <= number_pressed < levels.BLOCK_TYPES:
-                    self.holding_block = number_pressed
+                if 1 <= number_pressed <= levels.BLOCK_TYPES:
+                    self.holding_tile = number_pressed
 
         if events.mouse.released:
             if self.buttons.touch_mouse == self.SAVE_AND_EXIT:
@@ -233,9 +261,29 @@ class Editor:
                 self.switch_to_menu = True
                 return
 
+        if events.mouse.held:
+            self.change_tile_at_mouse()
+
         final_display.blit(self.grid_surface, (0, 0))
         final_display.blit(self.level_surface, (0, 0))
+        self.draw_mouse_tile(final_display)
         self.buttons.draw(final_display)
+
+    def draw_mouse_tile(self, surface):
+        """Draws the tile that the mouse is holding, onto the editor grid."""
+        mouse_position = events.mouse.position
+        tile = self.holding_tile
+
+        grid_position = grid_pixel_position(mouse_position)
+        if grid_position:
+            levels.draw_debug_tile(surface, tile, grid_position)
+
+    def change_tile_at_mouse(self):
+        tile_position = grid_tile_position(events.mouse.position)
+        if tile_position:
+            self.level.change_tile(self.holding_tile, tile_position)
+
+            self.draw_mouse_tile(self.level_surface)
 
 
 MENU = 0

@@ -10,8 +10,8 @@ PIXEL_WIDTH = WIDTH * constants.TILE_WIDTH
 PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 
 BLOCK_TYPES = 2
-EMPTY = 0
-FULL_WALL = 1
+EMPTY = 1
+FULL_WALL = 2
 
 
 def make_new_level():
@@ -57,8 +57,9 @@ def count_levels():
     return file.read().count('*')
 
 
-def out_of_bounds(column, row):
-    if 0 <= column < WIDTH and 0 <= row < HEIGHT:
+def out_of_bounds(tile_position):
+    """Returns whether a (column, row) pair is within the current level."""
+    if 0 <= tile_position[0] < WIDTH and 0 <= tile_position[1] < HEIGHT:
         return False
     return True
 
@@ -78,14 +79,26 @@ def string_to_level(string):
     return new_level
 
 
+def draw_debug_tile(surface, tile_type, position):
+    x = position[0]
+    y = position[1]
+    rect = (x, y, constants.TILE_WIDTH, constants.TILE_HEIGHT)
+
+    if tile_type == EMPTY:
+        pygame.draw.rect(surface, constants.TRANSPARENT, rect)
+    elif tile_type == FULL_WALL:
+        pygame.draw.rect(surface, constants.WHITE, rect)
+
+
 class Level:
     def __init__(self):
-        self.grid = [[0] * WIDTH for _ in range(HEIGHT)]
+        self.grid = [[1] * WIDTH for _ in range(HEIGHT)]
 
-    def tile_at(self, column, row):
-        if out_of_bounds(column, row):
+    def tile_at(self, tile_position):
+        """Returns the tile at tile_position, which is a (column, row) pair."""
+        if out_of_bounds(tile_position):
             return None
-        return self.grid[column][row]
+        return self.grid[tile_position[0]][tile_position[1]]
 
     def to_string(self):
         """Converts the level into a string, for writing to files."""
@@ -104,7 +117,7 @@ class Level:
         start_y = position[1]
         for row in range(HEIGHT):
             for column in range(WIDTH):
-                if self.tile_at(column, row) != EMPTY:
+                if self.tile_at((column, row)) != EMPTY:
                     rect = (start_x + column, start_y + row, 1, 1)
                     surface.fill(constants.WHITE, rect)
 
@@ -114,8 +127,19 @@ class Level:
         start_y = position[1]
         for row in range(HEIGHT):
             for column in range(WIDTH):
-                if self.tile_at(column, row) == FULL_WALL:
-                    x = start_x + column * constants.TILE_WIDTH
-                    y = start_y + row * constants.TILE_HEIGHT
-                    rect = (x, y, constants.TILE_WIDTH, constants.TILE_HEIGHT)
+                x = start_x + column * constants.TILE_WIDTH
+                y = start_y + row * constants.TILE_HEIGHT
+                rect = (x, y, constants.TILE_WIDTH, constants.TILE_HEIGHT)
+
+                tile = self.tile_at((column, row))
+                if tile == EMPTY:
+                    pygame.draw.rect(surface, constants.TRANSPARENT, rect)
+                elif tile == FULL_WALL:
                     pygame.draw.rect(surface, constants.WHITE, rect)
+
+    def change_tile(self, tile_type, tile_position):
+        """Changes the tile at tile_position to tile_type.
+
+        tile_position is a (column, row) pair.
+        """
+        self.grid[tile_position[0]][tile_position[1]] = tile_type
