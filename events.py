@@ -14,13 +14,17 @@ class MouseHandler:
 
 class KeyHandler:
     def __init__(self):
-        self.key_pressed = None
+        self.pressed = False
+        self.pressed_key = None
 
 
 def update():
     mouse.clicked = False
     mouse.released = False
     mouse.position = pygame.mouse.get_pos()
+
+    keys.pressed = False
+    keys.pressed_key = None
     for event in pygame.event.get():
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse.held = True
@@ -30,7 +34,8 @@ def update():
             mouse.released = True
 
         elif event.type == pygame.KEYDOWN:
-            keys.key_pressed = event.key
+            keys.pressed = True
+            keys.pressed_key = event.key
 
         elif event.type == pygame.QUIT:
             pygame.quit()

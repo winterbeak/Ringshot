@@ -4,6 +4,7 @@ import graphics
 import levels
 import constants
 import events
+import debug
 
 
 SCREEN_WIDTH = 600
@@ -221,8 +222,31 @@ def grid_pixel_position(point):
         return None
 
 
+def draw_tile(surface, tile_type, tile_position):
+    levels.draw_debug_tile(surface, tile_type, tile_position)
+
+
+class UndoState:
+    """Stores one undo step."""
+    def __init__(self, change_grid):
+        changes = []
+        for column in range(levels.WIDTH):
+            for row in range(levels.HEIGHT):
+                if change_grid[column][row] != -1:
+                    changes.append((change_grid[column][row], column, row))
+        self.changes = tuple(changes)
+
+    def to_string(self):
+        """Converts the undo into a printable string."""
+        return repr(self.changes)
+
+
 class Editor:
     def __init__(self):
+        self.undos = []
+        self.changed = False
+        self.changes_grid = [[-1] * levels.HEIGHT for _ in range(levels.WIDTH)]
+
         self.level = None
         self.level_num = -1
         self.holding_tile = levels.EMPTY
@@ -247,15 +271,22 @@ class Editor:
 
     def update_frame(self):
         self.buttons.update()
-        if events.keys.key_pressed:
-            key_name = pygame.key.name(events.keys.key_pressed)
+        if events.keys.pressed:
+            if events.keys.pressed_key == pygame.K_z:
+                self.undo()
+            else:
+                key_name = pygame.key.name(events.keys.pressed_key)
 
-            if key_name.isnumeric():
-                number_pressed = int(key_name)
-                if 1 <= number_pressed <= levels.BLOCK_TYPES:
-                    self.holding_tile = number_pressed
+                if key_name.isnumeric():
+                    number_pressed = int(key_name)
+                    if 1 <= number_pressed <= levels.BLOCK_TYPES:
+                        self.holding_tile = number_pressed
 
         if events.mouse.released:
+            if self.changed:
+                self.add_undo(self.changes_grid)
+                self.reset_changes_grid()
+
             if self.buttons.touch_mouse == self.SAVE_AND_EXIT:
                 levels.save_level(self.level_num, self.level)
                 self.switch_to_menu = True
@@ -269,6 +300,17 @@ class Editor:
         self.draw_mouse_tile(final_display)
         self.buttons.draw(final_display)
 
+    def change_tile(self, tile_type, tile_position):
+        """Changes the tile at tile_position to tile_type.
+
+        tile_position is a (column, row) pair.
+        """
+        self.level.change_tile(tile_type, tile_position)
+
+        x = tile_position[0] * constants.TILE_WIDTH
+        y = tile_position[1] * constants.TILE_HEIGHT
+        draw_tile(self.level_surface, tile_type, (x, y))
+
     def draw_mouse_tile(self, surface):
         """Draws the tile that the mouse is holding, onto the editor grid."""
         mouse_position = events.mouse.position
@@ -276,14 +318,39 @@ class Editor:
 
         grid_position = grid_pixel_position(mouse_position)
         if grid_position:
-            levels.draw_debug_tile(surface, tile, grid_position)
+            draw_tile(surface, tile, grid_position)
 
     def change_tile_at_mouse(self):
         tile_position = grid_tile_position(events.mouse.position)
         if tile_position:
-            self.level.change_tile(self.holding_tile, tile_position)
+            if self.level.tile_at(tile_position) != self.holding_tile:
+                # here we do all the things pertaining to undoing
+                self.changed = True
+                column = tile_position[0]
+                row = tile_position[1]
+                previous_tile = self.level.tile_at(tile_position)
+                self.changes_grid[column][row] = previous_tile
 
-            self.draw_mouse_tile(self.level_surface)
+                # here we actually change the tile
+                self.change_tile(self.holding_tile, tile_position)
+
+    def reset_changes_grid(self):
+        self.changed = False
+        for column in range(levels.WIDTH):
+            for row in range(levels.HEIGHT):
+                self.changes_grid[column][row] = -1
+
+    def add_undo(self, changes_grid):
+        self.undos.append(UndoState(changes_grid))
+
+    def apply_undo(self, undo):
+        for change in undo.changes:
+            self.change_tile(change[0], (change[1], change[2]))
+
+    def undo(self):
+        if self.undos:
+            self.apply_undo(self.undos[-1])
+            self.undos.pop(-1)
 
 
 MENU = 0
@@ -316,6 +383,7 @@ while True:
         editor.update_frame()
 
         if editor.switch_to_menu:
+            editor.undos = []
             editor.switch_to_menu = False
             current_screen = MENU
             main_menu.update_level_buttons()
