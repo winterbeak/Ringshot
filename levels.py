@@ -252,18 +252,30 @@ class Level:
         layer = self.layers[tile_position[0]]
         return layer.tile_at((tile_position[1], tile_position[2]))
 
-    def draw_debug(self, surface, position):
+    def draw_debug(self, surface, pixel_position):
         """Draws the level in a simplified manner, without sprites."""
-        start_x = position[0]
-        start_y = position[1]
+        start_x = pixel_position[0]
+        start_y = pixel_position[1]
 
-        for layer in range(LAYER_COUNT):
+        for layer in reversed(range(LAYER_COUNT)):
             for column in range(WIDTH):
                 for row in range(HEIGHT):
                     x = start_x + column * constants.TILE_WIDTH
                     y = start_y + row * constants.TILE_HEIGHT
                     tile = self.tile_at((layer, column, row))
                     draw_debug_tile(surface, layer, tile, (x, y))
+
+    def draw_debug_layer(self, surface, layer, pixel_position):
+        """Draws only one layer in the level, simplified, without sprites."""
+        start_x = pixel_position[0]
+        start_y = pixel_position[1]
+
+        for column in range(WIDTH):
+            for row in range(HEIGHT):
+                x = start_x + column * constants.TILE_WIDTH
+                y = start_y + row * constants.TILE_HEIGHT
+                tile = self.tile_at((layer, column, row))
+                draw_debug_tile(surface, layer, tile, (x, y))
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at a certain position.

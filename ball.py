@@ -18,7 +18,7 @@ class Ball:
         self.position = position
         self.radius = radius
         self.angle = 0
-        self.rotate_velocity = 0.0
+        self.angular_velocity = 0.0
 
     def draw_debug(self, surface):
         position = (int(self.x), int(self.y))  # pygame circles use integers
@@ -56,7 +56,7 @@ class Ball:
         self.x_velocity += self.x_acceleration / slowmo_factor
         self.y_velocity += self.y_acceleration / slowmo_factor
 
-        self.angle += self.rotate_velocity / slowmo_factor
+        self.angle += self.angular_velocity / slowmo_factor
 
     def launch(self, direction, power=12.0):
         vector = geometry.simple_vector(direction, power)
