@@ -4,7 +4,7 @@ import graphics
 import levels
 import constants
 import events
-import debug
+# import debug
 
 
 SCREEN_WIDTH = 600
@@ -104,7 +104,8 @@ def level_button(position, thumbnail_level, level_num):
     button = Button((position[0], position[1], width, height))
 
     thumbnail_position = (SCREEN_WIDTH - 120, 0)
-    thumbnail_level.draw_thumbnail(button.sprite, thumbnail_position)
+    block_layer = thumbnail_level.layers[levels.LAYER_BLOCKS]
+    block_layer.draw_thumbnail(button.sprite, thumbnail_position)
 
     text = TAHOMA.render(str(level_num), False, constants.WHITE)
     button.sprite.blit(text, (10, 10))
@@ -120,7 +121,7 @@ class MainMenu:
         self.DOWN = 2
         self.FIRST_LEVEL = 3
         self.LEVELS_PER_PAGE = 8
-        self.LEVEL_BUTTON_SPACE = 60
+        self.LEVEL_BUTTON_SPACING = 60
 
         buttons = ButtonSet()
         buttons.add(small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT//2 - 10)))
@@ -174,33 +175,45 @@ class MainMenu:
             else:
                 self.buttons.hide(button_id)
 
+    def level_on_current_page(self, level_num):
+        """Returns whether a level at the index level_num is on the
+        current page.
+        """
+        if level_num // self.LEVELS_PER_PAGE == self.page:
+            return True
+        else:
+            return False
+
     def update_level_buttons(self):
         """Reloads all the level buttons, even those not on the current page."""
         while self.buttons.button_count > self.SPECIAL_BUTTONS:
             self.buttons.pop()
 
-        file = open("levels.txt", 'r')
-        level_array = file.read().split('*')
-        level_array.pop(0)
-        file.close()
+        level_count = levels.count_levels()
+        if level_count == 0:
+            self.last_page = 0
+        else:
+            self.last_page = (level_count - 1) // self.LEVELS_PER_PAGE
 
-        y = self.LEVEL_BUTTON_SPACE
-        for level_num, level_string in enumerate(level_array):
-            this_level = levels.string_to_level(level_string)
+            file = open("levels.txt", 'r')
+            level_array = file.read().split(levels.LEVEL_SEPARATOR)
+            file.close()
 
-            new_button = level_button((20, y), this_level, level_num)
-            if level_num // self.LEVELS_PER_PAGE != self.page:
-                new_button.hidden = True
-            self.buttons.add(new_button)
+            y = self.LEVEL_BUTTON_SPACING
+            for level_num, level_string in enumerate(level_array):
+                this_level = levels.string_to_level(level_string)
 
-            y %= self.LEVEL_BUTTON_SPACE * self.LEVELS_PER_PAGE
-            y += self.LEVEL_BUTTON_SPACE
+                new_button = level_button((20, y), this_level, level_num)
+                if not self.level_on_current_page(level_num):
+                    new_button.hidden = True
+                self.buttons.add(new_button)
 
-        self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
+                y %= self.LEVEL_BUTTON_SPACING * self.LEVELS_PER_PAGE
+                y += self.LEVEL_BUTTON_SPACING
 
 
 def grid_tile_position(point):
-    """Returns the row and column of the tile that the point is on."""
+    """Returns the row and column of the tile that the given point is on."""
     column = point[0] // constants.TILE_WIDTH
     row = point[1] // constants.TILE_HEIGHT
 
@@ -222,18 +235,20 @@ def grid_pixel_position(point):
         return None
 
 
-def draw_tile(surface, tile_type, tile_position):
-    levels.draw_debug_tile(surface, tile_type, tile_position)
+def draw_tile(surface, layer_num, tile_id, tile_position):
+    levels.draw_debug_tile(surface, layer_num, tile_id, tile_position)
 
 
 class UndoState:
     """Stores one undo step."""
     def __init__(self, change_grid):
         changes = []
-        for column in range(levels.WIDTH):
-            for row in range(levels.HEIGHT):
-                if change_grid[column][row] != -1:
-                    changes.append((change_grid[column][row], column, row))
+        for layer in range(levels.LAYER_COUNT):
+            for column in range(levels.WIDTH):
+                for row in range(levels.HEIGHT):
+                    change = change_grid[layer][column][row]
+                    if change != -1:
+                        changes.append((change, layer, column, row))
         self.changes = tuple(changes)
 
     def to_string(self):
@@ -245,7 +260,10 @@ class Editor:
     def __init__(self):
         self.undos = []
         self.changed = False
-        self.changes_grid = [[-1] * levels.HEIGHT for _ in range(levels.WIDTH)]
+        self.changes_grid = [[[-1] * levels.HEIGHT for _ in range(levels.WIDTH)]
+                             for _ in range(levels.LAYER_COUNT)]
+
+        self.layer_num = levels.LAYER_BLOCKS
 
         self.level = None
         self.level_num = -1
@@ -279,7 +297,8 @@ class Editor:
 
                 if key_name.isnumeric():
                     number_pressed = int(key_name)
-                    if 1 <= number_pressed <= levels.BLOCK_TYPES:
+                    valid_tile_ids = levels.LAYER_ID_COUNTS[self.layer_num]
+                    if 1 <= number_pressed <= valid_tile_ids:
                         self.holding_tile = number_pressed
 
         if events.mouse.released:
@@ -300,16 +319,16 @@ class Editor:
         self.draw_mouse_tile(final_display)
         self.buttons.draw(final_display)
 
-    def change_tile(self, tile_type, tile_position):
-        """Changes the tile at tile_position to tile_type.
+    def change_tile(self, tile_id, tile_position):
+        """Changes the tile at tile_position to tile_id.
 
-        tile_position is a (column, row) pair.
+        tile_position is a (layer, column, row) triplet.
         """
-        self.level.change_tile(tile_type, tile_position)
+        self.level.change_tile(tile_id, tile_position)
 
-        x = tile_position[0] * constants.TILE_WIDTH
-        y = tile_position[1] * constants.TILE_HEIGHT
-        draw_tile(self.level_surface, tile_type, (x, y))
+        x = tile_position[1] * constants.TILE_WIDTH
+        y = tile_position[2] * constants.TILE_HEIGHT
+        draw_tile(self.level_surface, tile_position[0], tile_id, (x, y))
 
     def draw_mouse_tile(self, surface):
         """Draws the tile that the mouse is holding, onto the editor grid."""
@@ -318,34 +337,38 @@ class Editor:
 
         grid_position = grid_pixel_position(mouse_position)
         if grid_position:
-            draw_tile(surface, tile, grid_position)
+            draw_tile(surface, self.layer_num, tile, grid_position)
 
     def change_tile_at_mouse(self):
-        tile_position = grid_tile_position(events.mouse.position)
-        if tile_position:
+        grid_position = grid_tile_position(events.mouse.position)
+        if grid_position:
+            layer = self.layer_num
+            column = grid_position[0]
+            row = grid_position[1]
+            tile_position = (layer, column, row)
+
             if self.level.tile_at(tile_position) != self.holding_tile:
                 # here we do all the things pertaining to undoing
                 self.changed = True
-                column = tile_position[0]
-                row = tile_position[1]
                 previous_tile = self.level.tile_at(tile_position)
-                self.changes_grid[column][row] = previous_tile
+                self.changes_grid[layer][column][row] = previous_tile
 
                 # here we actually change the tile
                 self.change_tile(self.holding_tile, tile_position)
 
     def reset_changes_grid(self):
         self.changed = False
-        for column in range(levels.WIDTH):
-            for row in range(levels.HEIGHT):
-                self.changes_grid[column][row] = -1
+        for layer in range(levels.LAYER_COUNT):
+            for column in range(levels.WIDTH):
+                for row in range(levels.HEIGHT):
+                    self.changes_grid[layer][column][row] = -1
 
     def add_undo(self, changes_grid):
         self.undos.append(UndoState(changes_grid))
 
     def apply_undo(self, undo):
         for change in undo.changes:
-            self.change_tile(change[0], (change[1], change[2]))
+            self.change_tile(change[0], (change[1], change[2], change[3]))
 
     def undo(self):
         if self.undos:
