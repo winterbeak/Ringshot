@@ -1,4 +1,5 @@
 import pygame
+import os
 
 import graphics
 import levels
@@ -6,6 +7,8 @@ import constants
 import events
 # import debug
 
+
+os.environ["SDL_VIDEO_CENTERED"] = "1"
 
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
@@ -235,8 +238,8 @@ def grid_pixel_position(point):
         return None
 
 
-def draw_tile(surface, layer_num, tile_id, tile_position):
-    levels.draw_debug_tile(surface, layer_num, tile_id, tile_position)
+def draw_tile(surface, layer_num, tile_id, pixel_position):
+    levels.draw_debug_tile(surface, layer_num, tile_id, pixel_position)
 
 
 class UndoState:
@@ -257,29 +260,26 @@ class UndoState:
 
 
 class Editor:
+    TOOLBOX_TOP = SCREEN_HEIGHT - 80
+    TOOLBOX_LEFT = 225
+    TOOLBOX_TILE_WIDTH = constants.TILE_WIDTH + 5
+    TOOLBOX_TILE_HEIGHT = constants.TILE_HEIGHT + 5
+
     def __init__(self):
         self.undos = []
         self.changed = False
         self.changes_grid = [[[-1] * levels.HEIGHT for _ in range(levels.WIDTH)]
                              for _ in range(levels.LAYER_COUNT)]
 
-        self.layer_num = levels.LAYER_BLOCKS
+        self.selected_layer = levels.LAYER_BLOCKS
 
         self.level = None
         self.level_num = -1
-        self.holding_tile = levels.EMPTY
-        self.level_surface = graphics.new_surface(constants.SCREEN_SIZE)
-        self.grid_surface = graphics.new_surface(constants.SCREEN_SIZE)
-        color = (30, 30, 30)
-        for row in range(levels.HEIGHT):
-            start = (0, row * constants.TILE_HEIGHT - 1)
-            end = (levels.PIXEL_WIDTH, row * constants.TILE_HEIGHT - 1)
-            pygame.draw.line(self.grid_surface, color, start, end, 2)
+        self.selected_tile = levels.EMPTY
 
-        for column in range(levels.WIDTH):
-            start = (column * constants.TILE_WIDTH - 1, 0)
-            end = (column * constants.TILE_WIDTH - 1, levels.PIXEL_HEIGHT)
-            pygame.draw.line(self.grid_surface, color, start, end, 2)
+        self.level_surface = graphics.new_surface(constants.SCREEN_SIZE)
+        self.ui_surface = graphics.new_surface(SCREEN_SIZE)
+        self.init_editor_ui()
 
         self.SAVE_AND_EXIT = 0
         self.buttons = ButtonSet()
@@ -287,19 +287,33 @@ class Editor:
 
         self.switch_to_menu = False
 
-    def update_frame(self):
+    def update(self):
         self.buttons.update()
         if events.keys.pressed:
-            if events.keys.pressed_key == pygame.K_z:
+            key = events.keys.pressed_key
+            if key == pygame.K_z:
                 self.undo()
+
+            elif key == pygame.K_TAB or key == pygame.K_DOWN:
+                if self.selected_layer == levels.LAYER_COUNT - 1:
+                    self.change_layer(0)
+                else:
+                    self.change_layer(self.selected_layer + 1)
+
+            elif key == pygame.K_UP:
+                if self.selected_layer == 0:
+                    self.change_layer(levels.LAYER_COUNT - 1)
+                else:
+                    self.change_layer(self.selected_layer - 1)
+
             else:
-                key_name = pygame.key.name(events.keys.pressed_key)
+                key_name = pygame.key.name(key)
 
                 if key_name.isnumeric():
                     number_pressed = int(key_name)
-                    valid_tile_ids = levels.LAYER_ID_COUNTS[self.layer_num]
+                    valid_tile_ids = levels.LAYER_ID_COUNTS[self.selected_layer]
                     if 1 <= number_pressed <= valid_tile_ids:
-                        self.holding_tile = number_pressed
+                        self.selected_tile = number_pressed
 
         if events.mouse.released:
             if self.changed:
@@ -314,10 +328,73 @@ class Editor:
         if events.mouse.held:
             self.change_tile_at_mouse()
 
-        final_display.blit(self.grid_surface, (0, 0))
-        final_display.blit(self.level_surface, (0, 0))
-        self.draw_mouse_tile(final_display)
-        self.buttons.draw(final_display)
+    def draw(self, surface):
+        surface.blit(self.ui_surface, (0, 0))
+        self.draw_editor_selection(surface)
+        surface.blit(self.level_surface, (0, 0))
+        self.draw_mouse_tile(surface)
+        self.buttons.draw(surface)
+
+    def change_layer(self, layer):
+        """Changes the currently selected layer to the specified layer."""
+        if layer < levels.LAYER_COUNT:
+            self.selected_layer = layer
+            self.selected_tile = levels.EMPTY
+
+    def init_editor_ui(self):
+        self.draw_editor_grid()
+        self.draw_editor_toolbox()
+
+    def draw_editor_grid(self):
+        color = (30, 30, 30)
+        for row in range(levels.HEIGHT):
+            start = (0, row * constants.TILE_HEIGHT - 1)
+            end = (levels.PIXEL_WIDTH, row * constants.TILE_HEIGHT - 1)
+            pygame.draw.line(self.ui_surface, color, start, end, 2)
+
+        for column in range(levels.WIDTH):
+            start = (column * constants.TILE_WIDTH - 1, 0)
+            end = (column * constants.TILE_WIDTH - 1, levels.PIXEL_HEIGHT)
+            pygame.draw.line(self.ui_surface, color, start, end, 2)
+
+    def draw_editor_toolbox(self):
+        # draws tiles
+        y = self.TOOLBOX_TOP
+        for layer in range(levels.LAYER_COUNT):
+            x = self.TOOLBOX_LEFT
+
+            for tile in range(1, levels.LAYER_ID_COUNTS[layer] + 1):
+                draw_tile(self.ui_surface, layer, tile, (x, y))
+                x += self.TOOLBOX_TILE_WIDTH
+
+            y += self.TOOLBOX_TILE_HEIGHT
+
+        # draws hotkey numbers
+        x = self.TOOLBOX_LEFT + 6
+        for tile in range(1, max(levels.LAYER_ID_COUNTS) + 1):
+            number = TAHOMA.render(str(tile), False, constants.WHITE)
+            self.ui_surface.blit(number, (x, y))
+
+            x += self.TOOLBOX_TILE_WIDTH
+
+    def draw_editor_selection(self, surface):
+        tile_width = self.TOOLBOX_TILE_WIDTH
+        tile_height = self.TOOLBOX_TILE_HEIGHT
+        layer = self.selected_layer
+
+        layer_x = self.TOOLBOX_LEFT - 6
+        layer_y = self.TOOLBOX_TOP - 6 + self.selected_layer * tile_height
+        layer_w = levels.LAYER_ID_COUNTS[layer] * tile_width + 6
+        layer_h = constants.TILE_HEIGHT + 11
+        layer_rect = (layer_x, layer_y, layer_w, layer_h)
+        pygame.draw.rect(surface, constants.MAGENTA, layer_rect, 2)
+
+        tile_x = layer_x + 3 + (self.selected_tile - 1) * tile_width
+        tile_y = layer_y + 3
+        tile_w = constants.TILE_WIDTH + 5
+        tile_h = constants.TILE_HEIGHT + 5
+        tile_rect = (tile_x, tile_y, tile_w, tile_h)
+        pygame.draw.rect(surface, constants.MAGENTA, tile_rect, 2)
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at tile_position to tile_id.
@@ -333,28 +410,28 @@ class Editor:
     def draw_mouse_tile(self, surface):
         """Draws the tile that the mouse is holding, onto the editor grid."""
         mouse_position = events.mouse.position
-        tile = self.holding_tile
+        tile = self.selected_tile
 
         grid_position = grid_pixel_position(mouse_position)
         if grid_position:
-            draw_tile(surface, self.layer_num, tile, grid_position)
+            draw_tile(surface, self.selected_layer, tile, grid_position)
 
     def change_tile_at_mouse(self):
         grid_position = grid_tile_position(events.mouse.position)
         if grid_position:
-            layer = self.layer_num
+            layer = self.selected_layer
             column = grid_position[0]
             row = grid_position[1]
             tile_position = (layer, column, row)
 
-            if self.level.tile_at(tile_position) != self.holding_tile:
+            if self.level.tile_at(tile_position) != self.selected_tile:
                 # here we do all the things pertaining to undoing
                 self.changed = True
                 previous_tile = self.level.tile_at(tile_position)
                 self.changes_grid[layer][column][row] = previous_tile
 
                 # here we actually change the tile
-                self.change_tile(self.holding_tile, tile_position)
+                self.change_tile(self.selected_tile, tile_position)
 
     def reset_changes_grid(self):
         self.changed = False
@@ -403,7 +480,8 @@ while True:
             editor.level.draw_debug(editor.level_surface, (0, 0))
 
     elif current_screen == EDITOR:
-        editor.update_frame()
+        editor.update()
+        editor.draw(final_display)
 
         if editor.switch_to_menu:
             editor.undos = []

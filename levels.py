@@ -15,7 +15,7 @@ HEIGHT = 25
 PIXEL_WIDTH = WIDTH * constants.TILE_WIDTH
 PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 
-LAYER_ID_COUNTS = (6, 4)
+LAYER_ID_COUNTS = (6, 5)
 EMPTY = 1
 BLOCKS_WALL = 2
 
@@ -136,19 +136,62 @@ def string_to_level(string):
     return new_level
 
 
-def draw_debug_tile(surface, layer_num, tile_id, position):
-    x = position[0]
-    y = position[1]
-    rect = (x, y, constants.TILE_WIDTH, constants.TILE_HEIGHT)
+BUTTON_THICKNESS = 5
+
+
+def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
+    tile_width = constants.TILE_WIDTH
+    tile_height = constants.TILE_HEIGHT
+    x = pixel_position[0]
+    y = pixel_position[1]
+
+    if tile_id == EMPTY:
+        rect = (x, y, tile_width, tile_height)
+        pygame.draw.rect(surface, constants.TRANSPARENT, rect)
+        return
 
     if layer_num == LAYER_BLOCKS:
-        if tile_id == EMPTY:
-            pygame.draw.rect(surface, constants.TRANSPARENT, rect)
-        elif tile_id == BLOCKS_WALL:
+        if tile_id == BLOCKS_WALL:
+            rect = (x, y, tile_width, tile_height)
             pygame.draw.rect(surface, constants.WHITE, rect)
 
+        else:
+            top_left = (x, y)
+            top_right = (x + tile_width - 1, y)
+            bottom_right = (x + tile_width - 1, y + tile_height - 1)
+            bottom_left = (x, y + tile_height - 1)
+
+            if tile_id == BLOCKS_TOPLEFT:
+                point_list = (top_left, top_right, bottom_left)
+            elif tile_id == BLOCKS_TOPRIGHT:
+                point_list = (top_left, top_right, bottom_right)
+            elif tile_id == BLOCKS_BOTTOMRIGHT:
+                point_list = (top_right, bottom_right, bottom_left)
+            elif tile_id == BLOCKS_BOTTOMLEFT:
+                point_list = (top_left, bottom_right, bottom_left)
+            else:
+                return
+
+            pygame.draw.polygon(surface, constants.WHITE, point_list)
+
     elif layer_num == LAYER_BUTTONS:
-        pass
+        if tile_id == BUTTONS_LEFT:
+            width = BUTTON_THICKNESS
+            height = tile_height
+        elif tile_id == BUTTONS_UP:
+            width = tile_width
+            height = BUTTON_THICKNESS
+        elif tile_id == BUTTONS_RIGHT:
+            x += tile_width - BUTTON_THICKNESS
+            width = BUTTON_THICKNESS
+            height = tile_height
+        elif tile_id == BUTTONS_DOWN:
+            y += tile_height - BUTTON_THICKNESS
+            width = tile_width
+            height = BUTTON_THICKNESS
+        else:
+            return
+        pygame.draw.rect(surface, constants.RED, (x, y, width, height))
 
 
 class Layer:
@@ -213,19 +256,14 @@ class Level:
         """Draws the level in a simplified manner, without sprites."""
         start_x = position[0]
         start_y = position[1]
-        layer = LAYER_BLOCKS
 
-        for row in range(HEIGHT):
+        for layer in range(LAYER_COUNT):
             for column in range(WIDTH):
-                x = start_x + column * constants.TILE_WIDTH
-                y = start_y + row * constants.TILE_HEIGHT
-                rect = (x, y, constants.TILE_WIDTH, constants.TILE_HEIGHT)
-
-                tile = self.tile_at((layer, column, row))
-                if tile == EMPTY:
-                    pygame.draw.rect(surface, constants.TRANSPARENT, rect)
-                elif tile == BLOCKS_WALL:
-                    pygame.draw.rect(surface, constants.WHITE, rect)
+                for row in range(HEIGHT):
+                    x = start_x + column * constants.TILE_WIDTH
+                    y = start_y + row * constants.TILE_HEIGHT
+                    tile = self.tile_at((layer, column, row))
+                    draw_debug_tile(surface, layer, tile, (x, y))
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at a certain position.
