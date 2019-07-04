@@ -215,29 +215,6 @@ class MainMenu:
                 y += self.LEVEL_BUTTON_SPACING
 
 
-def grid_tile_position(point):
-    """Returns the row and column of the tile that the given point is on."""
-    column = point[0] // constants.TILE_WIDTH
-    row = point[1] // constants.TILE_HEIGHT
-
-    if not levels.out_of_bounds((column, row)):
-        return column, row
-    else:
-        return None
-
-
-def grid_pixel_position(point):
-    """Returns the top left corner of the tile that the point is on."""
-    tile_position = grid_tile_position(point)
-
-    if tile_position and not levels.out_of_bounds(tile_position):
-        x = tile_position[0] * constants.TILE_WIDTH
-        y = tile_position[1] * constants.TILE_HEIGHT
-        return x, y
-    else:
-        return None
-
-
 def draw_tile(surface, layer_num, tile_id, pixel_position):
     levels.draw_debug_tile(surface, layer_num, tile_id, pixel_position)
 
@@ -412,16 +389,15 @@ class Editor:
         mouse_position = events.mouse.position
         tile = self.selected_tile
 
-        grid_position = grid_pixel_position(mouse_position)
+        grid_position = levels.grid_pixel_position(mouse_position)
         if grid_position:
             draw_tile(surface, self.selected_layer, tile, grid_position)
 
     def change_tile_at_mouse(self):
-        grid_position = grid_tile_position(events.mouse.position)
+        grid_position = levels.grid_tile_position(events.mouse.position)
         if grid_position:
             layer = self.selected_layer
-            column = grid_position[0]
-            row = grid_position[1]
+            column, row = grid_position
             tile_position = (layer, column, row)
 
             if self.level.tile_at(tile_position) != self.selected_tile:

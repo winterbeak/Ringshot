@@ -1,5 +1,7 @@
 import pygame
 
+import math
+import geometry
 import constants
 
 pygame.init()
@@ -136,14 +138,13 @@ def string_to_level(string):
     return new_level
 
 
-BUTTON_THICKNESS = 5
+_BUTTON_THICKNESS = 5
 
 
 def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
     tile_width = constants.TILE_WIDTH
     tile_height = constants.TILE_HEIGHT
-    x = pixel_position[0]
-    y = pixel_position[1]
+    x, y = pixel_position
 
     if tile_id == EMPTY:
         rect = (x, y, tile_width, tile_height)
@@ -176,22 +177,67 @@ def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
 
     elif layer_num == LAYER_BUTTONS:
         if tile_id == BUTTONS_LEFT:
-            width = BUTTON_THICKNESS
+            width = _BUTTON_THICKNESS
             height = tile_height
         elif tile_id == BUTTONS_UP:
             width = tile_width
-            height = BUTTON_THICKNESS
+            height = _BUTTON_THICKNESS
         elif tile_id == BUTTONS_RIGHT:
-            x += tile_width - BUTTON_THICKNESS
-            width = BUTTON_THICKNESS
+            x += tile_width - _BUTTON_THICKNESS
+            width = _BUTTON_THICKNESS
             height = tile_height
         elif tile_id == BUTTONS_DOWN:
-            y += tile_height - BUTTON_THICKNESS
+            y += tile_height - _BUTTON_THICKNESS
             width = tile_width
-            height = BUTTON_THICKNESS
+            height = _BUTTON_THICKNESS
         else:
             return
         pygame.draw.rect(surface, constants.RED, (x, y, width, height))
+
+
+def grid_tile_position(point):
+    """Returns the row and column of the tile that the given point is on."""
+    column = point[0] // constants.TILE_WIDTH
+    row = point[1] // constants.TILE_HEIGHT
+
+    if not out_of_bounds((column, row)):
+        return column, row
+    else:
+        return None
+
+
+def grid_pixel_position(point):
+    """Returns the top left corner of the tile that the point is on."""
+    tile_position = grid_tile_position(point)
+
+    if tile_position and not out_of_bounds(tile_position):
+        x = tile_position[0] * constants.TILE_WIDTH
+        y = tile_position[1] * constants.TILE_HEIGHT
+        return x, y
+    else:
+        return None
+
+
+_BALL_CHECKS = 8
+
+
+def tiles_touching_ball(radius, ball_center):
+    """Returns a set of tuples, each a (column, row) pair, of the tiles
+    that the ball touches.  Note that this is not necessarily 100%
+    accurate, since it simply checks a few points around the circumference
+    of the ball (the amount of points is defined by _BALL_CHECKS).
+    """
+    tile_list = []
+
+    center_x, center_y = ball_center
+    for point_num in range(_BALL_CHECKS):
+        angle = math.tau * (point_num / _BALL_CHECKS)
+        delta_x, delta_y = geometry.vector_to_delta(angle, radius)
+
+        point = (center_x + delta_x, center_y + delta_y)
+        tile_list.append(grid_tile_position(point))
+
+    return set(tile_list)
 
 
 class Layer:
@@ -219,8 +265,7 @@ class Layer:
 
     def draw_thumbnail(self, surface, position):
         """Draws a small thumbnail of the layer."""
-        start_x = position[0]
-        start_y = position[1]
+        start_x, start_y = position
         for column in range(WIDTH):
             for row in range(HEIGHT):
                 if self.tile_at((column, row)) != EMPTY:
@@ -254,8 +299,7 @@ class Level:
 
     def draw_debug(self, surface, pixel_position):
         """Draws the level in a simplified manner, without sprites."""
-        start_x = pixel_position[0]
-        start_y = pixel_position[1]
+        start_x, start_y = pixel_position
 
         for layer in reversed(range(LAYER_COUNT)):
             for column in range(WIDTH):
@@ -267,8 +311,7 @@ class Level:
 
     def draw_debug_layer(self, surface, layer, pixel_position):
         """Draws only one layer in the level, simplified, without sprites."""
-        start_x = pixel_position[0]
-        start_y = pixel_position[1]
+        start_x, start_y = pixel_position
 
         for column in range(WIDTH):
             for row in range(HEIGHT):
@@ -284,3 +327,40 @@ class Level:
         """
         layer = self.layers[tile_position[0]]
         layer.change_tile(tile_id, (tile_position[1], tile_position[2]))
+
+    def tile_to_segments(self, tile_position):
+        """Returns a list of Segments representing a tile at the specified
+        tile_position.  This will always only check LAYER_BLOCKS.
+
+        tile_position is a (column, row pair).
+        """
+        layer = self.layers[LAYER_BLOCKS]
+        tile = layer.tile_at(tile_position)
+
+        if tile == EMPTY:
+            return []
+
+        else:
+            width = constants.TILE_WIDTH
+            height = constants.TILE_HEIGHT
+            x = tile_position[0] * constants.TILE_WIDTH
+            y = tile_position[1] * constants.TILE_HEIGHT
+            top_left = (x, y)
+            top_right = (x + width, y)
+            bottom_right = (x + width, y + height)
+            bottom_left = (x, y + height)
+
+            if tile == BLOCKS_WALL:
+                points = (top_left, top_right, bottom_right, bottom_left)
+            elif tile == BLOCKS_TOPLEFT:
+                points = (top_left, top_right, bottom_left)
+            elif tile == BLOCKS_TOPRIGHT:
+                points = (top_right, bottom_right, top_left)
+            elif tile == BLOCKS_BOTTOMRIGHT:
+                points = (bottom_right, bottom_left, top_right)
+            elif tile == BLOCKS_BOTTOMLEFT:
+                points = (bottom_left, top_left, bottom_right)
+            else:
+                return []
+
+            return geometry.points_to_segment_list(points)

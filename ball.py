@@ -1,6 +1,8 @@
 import pygame
+
 import constants
 import geometry
+import levels
 
 
 class Ball:
@@ -24,7 +26,8 @@ class Ball:
         position = (int(self.x), int(self.y))  # pygame circles use integers
         pygame.draw.circle(surface, self.DEBUG_COLOR, position, self.radius)
 
-        blip_distance = geometry.simple_vector(self.angle, self.radius)
+        # draws a little pixel representing the ball's rotation
+        blip_distance = geometry.vector_to_delta(self.angle, self.radius)
         blip_x = int(self.x + blip_distance[0])
         blip_y = int(self.y + blip_distance[1])
         pygame.draw.circle(surface, self.BLIP_COLOR, (blip_x, blip_y), 1)
@@ -58,8 +61,28 @@ class Ball:
 
         self.angle += self.angular_velocity / slowmo_factor
 
+    def next_position(self, slowmo_factor = 1.0):
+        """Returns the expected position on the next frame, without
+        taking into account collision."""
+        x = self.x + self.x_velocity / slowmo_factor
+        y = self.y + self.y_velocity / slowmo_factor
+        return x, y
+
+    def check_collision(self, level, slowmo_factor = 1.0):
+        """Updates the player's position and velocity based on where they
+        are going in the level."""
+        next_position = self.next_position(slowmo_factor)
+
+        tiles = levels.tiles_touching_ball(self.radius, self.position)
+        for tile in tiles:
+            if tile:  # remember, out of bounds tiles return None
+                segments = level.tile_to_segments(tile)
+                for segment in segments:
+                    pass
+
+
     def launch(self, direction, power=12.0):
-        vector = geometry.simple_vector(direction, power)
+        vector = geometry.vector_to_delta(direction, power)
         self.x_velocity = vector[0]
         self.y_velocity = vector[1]
 
