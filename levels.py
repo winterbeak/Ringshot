@@ -197,8 +197,8 @@ def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
 
 def grid_tile_position(point):
     """Returns the row and column of the tile that the given point is on."""
-    column = point[0] // constants.TILE_WIDTH
-    row = point[1] // constants.TILE_HEIGHT
+    column = int(point[0] // constants.TILE_WIDTH)
+    row = int(point[1] // constants.TILE_HEIGHT)
 
     if not out_of_bounds((column, row)):
         return column, row
@@ -232,7 +232,7 @@ def tiles_touching_ball(radius, ball_center):
     center_x, center_y = ball_center
     for point_num in range(_BALL_CHECKS):
         angle = math.tau * (point_num / _BALL_CHECKS)
-        delta_x, delta_y = geometry.vector_to_delta(angle, radius)
+        delta_x, delta_y = geometry.vector_to_difference(angle, radius)
 
         point = (center_x + delta_x, center_y + delta_y)
         tile_list.append(grid_tile_position(point))

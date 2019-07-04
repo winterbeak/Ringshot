@@ -7,7 +7,7 @@ def angle_between(from_position, to_position):
     return math.atan2(delta_y, delta_x)
 
 
-def vector_to_delta(angle, magnitude):
+def vector_to_difference(angle, magnitude):
     """Converts a vector into a difference of x and a difference of y."""
     delta_x = math.cos(angle) * magnitude
     delta_y = math.sin(angle) * magnitude
@@ -153,8 +153,8 @@ def points_to_segment_list(point_list):
     return segment_list
 
 
-def shortest_segment_between_point_and_segment(point, segment):
-    """Oh god this function name is horrendous but I can't think of another
+def point_and_segment(point, segment):
+    """Previously known as shortest_segment_between_point_and_segment().
     Returns the shortest line segment that would connect a given point and
     a given Segment.
 
@@ -187,7 +187,42 @@ def shortest_segment_between_point_and_segment(point, segment):
             return Segment(point, segment.point2)
 
 
-test_segment = Segment((0.0, 0.0), (100.0, 100.0))
-test_point = (1.0, 3.0)
-result_segment = shortest_segment_between_point_and_segment(test_point, test_segment)
-result_segment.print()
+def reflect_vector(slope, delta):
+    delta_x, delta_y = delta
+    magnitude = math.sqrt(delta_x ** 2 + delta_y ** 2)
+
+    if delta_x == 0.0:
+        angle1 = math.atan(math.inf)
+        if delta_y < 0.0:
+            angle1 += math.pi
+    else:
+        # quadrants are weird here because moving down is positive!
+        angle1 = math.atan(abs(delta_y / delta_x))
+
+        if delta_x < 0.0:
+            if delta_y < 0.0:  # quadrant 2
+                angle1 = math.pi - angle1
+            else:              # quadrant 3
+                angle1 += math.pi
+        else:
+            if delta_y > 0.0:  # quadrant 4
+                angle1 = math.tau - angle1
+
+    angle2 = math.atan(slope)
+    delta_angle = angle2 - angle1
+    final_angle = angle2 + delta_angle
+
+    # print("%.2f / %.2f" % (delta_y, delta_x))
+    # print(math.degrees(angle1))
+    # print(math.degrees(angle2))
+    # print(math.degrees(final_angle))
+
+    return vector_to_difference(final_angle, magnitude)
+
+
+# test_segment = Segment((0.0, 0.0), (100.0, 100.0))
+# test_point = (1.0, 3.0)
+# result_segment = point_and_segment(test_point, test_segment)
+# result_segment.print()
+#
+# print(reflect_vector(1.0, (-5.0, -5.0)))

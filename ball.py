@@ -9,8 +9,9 @@ class Ball:
     """A simulated ball that experiences gravity and rolls."""
     DEBUG_COLOR = constants.MAGENTA
     BLIP_COLOR = constants.CYAN
+    CHECK_STEPS = 2  # how many intermediate frames to check between frames
 
-    def __init__(self, position, radius):
+    def __init__(self, position, radius, bounce_decay = 0.7):
         self.x = position[0]
         self.y = position[1]
         self.x_velocity = 0.0
@@ -22,12 +23,18 @@ class Ball:
         self.angle = 0
         self.angular_velocity = 0.0
 
+        # bounce_decay is how bouncy the ball is.  value should be between
+        # 0 and 1.  settting bounce decay greater than 1 is wild, though!
+        # specifically, bounce_decay measures what percentage of the initial
+        # speed is kept after bouncing.
+        self.bounce_decay = bounce_decay
+
     def draw_debug(self, surface):
         position = (int(self.x), int(self.y))  # pygame circles use integers
         pygame.draw.circle(surface, self.DEBUG_COLOR, position, self.radius)
 
         # draws a little pixel representing the ball's rotation
-        blip_distance = geometry.vector_to_delta(self.angle, self.radius)
+        blip_distance = geometry.vector_to_difference(self.angle, self.radius)
         blip_x = int(self.x + blip_distance[0])
         blip_y = int(self.y + blip_distance[1])
         pygame.draw.circle(surface, self.BLIP_COLOR, (blip_x, blip_y), 1)
@@ -71,18 +78,54 @@ class Ball:
     def check_collision(self, level, slowmo_factor = 1.0):
         """Updates the player's position and velocity based on where they
         are going in the level."""
-        next_position = self.next_position(slowmo_factor)
+        full_step = self.next_position(slowmo_factor)
+        for step in range(1, self.CHECK_STEPS + 1):
+            multiplier = step / self.CHECK_STEPS
 
-        tiles = levels.tiles_touching_ball(self.radius, self.position)
-        for tile in tiles:
-            if tile:  # remember, out of bounds tiles return None
+            delta_x = (full_step[0] - self.x) * multiplier
+            delta_y = (full_step[1] - self.y) * multiplier
+
+            next_position = (self.x + delta_x, self.y + delta_y)
+
+            tiles = levels.tiles_touching_ball(self.radius, next_position)
+            shortest_segment = None
+            shortest = 1000000.0
+            for tile in tiles:
+                if not tile:  # remember, out of bounds tiles return None
+                    continue
+
                 segments = level.tile_to_segments(tile)
-                for segment in segments:
-                    pass
+                if not segments:
+                    continue
 
+                for segment in segments:
+                    new_segment = geometry.point_and_segment(next_position, segment)
+                    if new_segment.length < shortest:
+                        shortest_segment = new_segment
+                        shortest = new_segment.length
+
+            if shortest_segment and shortest < self.radius:
+                velocity = (self.x_velocity, self.y_velocity)
+                perpendicular = geometry.inverse(shortest_segment.slope)
+                reflected = geometry.reflect_vector(perpendicular, velocity)
+
+                # print(shortest_segment.point1, shortest_segment.point2)
+                # print(self.x_velocity, self.y_velocity)
+                # print(reflected)
+                # print(shortest_segment.slope)
+                # print()
+
+                # y is negative since moving up is positive!
+                # pygame sure is weird.
+                new_velocity_x = reflected[0] * self.bounce_decay
+                new_velocity_y = -reflected[1] * self.bounce_decay
+                self.x_velocity = new_velocity_x
+                self.y_velocity = new_velocity_y
+
+                break
 
     def launch(self, direction, power=12.0):
-        vector = geometry.vector_to_delta(direction, power)
+        vector = geometry.vector_to_difference(direction, power)
         self.x_velocity = vector[0]
         self.y_velocity = vector[1]
 

@@ -9,10 +9,10 @@ import ball
 import levels
 
 
-def screen_update():
+def screen_update(fps):
     pygame.display.flip()
     final_display.fill(constants.BLACK)
-    clock.tick(constants.FPS)
+    clock.tick(fps)
 
 
 pygame.init()
@@ -53,6 +53,7 @@ class PlayScreen:
             self.player.launch_towards(events.mouse.position)
             self.slowmo_factor = 1.0
 
+        self.player.check_collision(self.level, self.slowmo_factor)
         self.player.update_body(self.slowmo_factor)
 
     def draw(self, surface):
@@ -74,4 +75,11 @@ while True:
     play_screen.draw(final_display)
 
     debug.debug(final_display, 0, clock.get_fps())
-    screen_update()
+    debug.debug(final_display, 1, play_screen.player.x_velocity, play_screen.player.y_velocity)
+    point1 = (play_screen.player.x, play_screen.player.y)
+    point2 = (point1[0] + play_screen.player.x_velocity, point1[1] + play_screen.player.y_velocity)
+    debug.debug_line(final_display, point1, point2)
+    # if events.mouse.held:
+        # screen_update(5)
+    # else:
+    screen_update(60)
