@@ -231,7 +231,7 @@ def tiles_touching_ball(radius, ball_center):
 
     center_x, center_y = ball_center
     for point_num in range(_BALL_CHECKS):
-        angle = math.tau * (point_num / _BALL_CHECKS)
+        angle = math.pi * 2.0 * (point_num / _BALL_CHECKS)
         delta_x, delta_y = geometry.vector_to_difference(angle, radius)
 
         point = (center_x + delta_x, center_y + delta_y)

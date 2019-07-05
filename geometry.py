@@ -14,13 +14,53 @@ def vector_to_difference(angle, magnitude):
     return delta_x, delta_y
 
 
+def difference_to_vector(difference):
+    """Converts a (delta_x, delta_y) pair into an (angle, magnitude) pair.
+
+    Note that the y axis is inverted, since that's what pygame does."""
+    delta_x, delta_y = difference
+    magnitude = math.sqrt(delta_x ** 2 + delta_y ** 2)
+
+    if delta_x == 0.0:
+        angle = math.atan(math.inf)
+        if delta_y < 0.0:
+            angle += math.pi
+    else:
+        # quadrants are weird here because moving down is positive!
+        angle = math.atan(abs(delta_y / delta_x))
+
+        if delta_x < 0.0:
+            if delta_y < 0.0:  # quadrant 2
+                angle = math.pi - angle
+            else:              # quadrant 3
+                angle += math.pi
+        else:
+            if delta_y > 0.0:  # quadrant 4
+                angle = math.pi * 2.0 - angle
+
+    # print("%.2f / %.2f" % (delta_y, delta_x))
+
+    return angle, magnitude
+
+
+def component_in_direction(vector, direction):
+    """Returns the magnitude of the component of a vector that points in
+    the given direction.
+
+    vector is an (angle, magnitude) pair.
+    """
+    angle, magnitude = vector
+    delta_angle = abs(direction - angle)
+    return magnitude * math.cos(delta_angle)
+
+
 def distance(point1, point2):
     x1, y1 = point1
     x2, y2 = point2
     return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
 
-def slope(point1, point2):
+def two_point_slope(point1, point2):
     x1, y1 = point1
     x2, y2 = point2
     if x1 == x2:
@@ -117,7 +157,7 @@ class Segment:
         self.point2 = point2
 
         self.length = distance(point1, point2)
-        self.slope = slope(point1, point2)
+        self.slope = two_point_slope(point1, point2)
 
         # y_intercept is stored as if the segment was infinite
         self.y_intercept = y_intercept(point1, self.slope)
@@ -188,31 +228,12 @@ def point_and_segment(point, segment):
 
 
 def reflect_vector(slope, delta):
-    delta_x, delta_y = delta
-    magnitude = math.sqrt(delta_x ** 2 + delta_y ** 2)
-
-    if delta_x == 0.0:
-        angle1 = math.atan(math.inf)
-        if delta_y < 0.0:
-            angle1 += math.pi
-    else:
-        # quadrants are weird here because moving down is positive!
-        angle1 = math.atan(abs(delta_y / delta_x))
-
-        if delta_x < 0.0:
-            if delta_y < 0.0:  # quadrant 2
-                angle1 = math.pi - angle1
-            else:              # quadrant 3
-                angle1 += math.pi
-        else:
-            if delta_y > 0.0:  # quadrant 4
-                angle1 = math.tau - angle1
+    angle1, magnitude = difference_to_vector(delta)
 
     angle2 = math.atan(slope)
     delta_angle = angle2 - angle1
     final_angle = angle2 + delta_angle
 
-    # print("%.2f / %.2f" % (delta_y, delta_x))
     # print(math.degrees(angle1))
     # print(math.degrees(angle2))
     # print(math.degrees(final_angle))

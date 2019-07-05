@@ -31,7 +31,8 @@ class PlayScreen:
     def __init__(self):
         self.level = None
         self.slowmo_factor = 1.0  # the coefficient of time-slow.
-        self.player = ball.Ball(constants.SCREEN_MIDDLE, 8)
+        self.balls = [ball.Ball(constants.SCREEN_MIDDLE, 10)]
+        self.player = self.balls[0]
 
         # make sure you DONT DRAW THE BUTTONS on block_surface
         self.block_surface = graphics.new_surface(constants.SCREEN_SIZE)
@@ -50,15 +51,27 @@ class PlayScreen:
                     self.slowmo_factor = 1.0
 
         if events.mouse.released:
+            new_ball = ball.Ball(self.player.position, self.player.radius - 1)
+            old_ball = self.player
+            self.player = new_ball
+            self.balls.append(new_ball)
+
             self.player.launch_towards(events.mouse.position)
+            old_ball.x_velocity = -self.player.x_velocity
+            old_ball.y_velocity = -self.player.y_velocity
             self.slowmo_factor = 1.0
 
-        self.player.check_collision(self.level, self.slowmo_factor)
-        self.player.update_body(self.slowmo_factor)
+        for ball_ in self.balls:
+            ball_.check_collision(self.level, self.slowmo_factor)
+            ball_.update_body(self.slowmo_factor)
 
     def draw(self, surface):
         surface.blit(self.block_surface, (0, 0))
-        self.player.draw_debug(surface)
+        for ball_ in self.balls:
+            if ball_ is self.player:
+                ball_.draw_debug(surface, constants.YELLOW)
+            else:
+                ball_.draw_debug(surface)
 
     def load_level(self, level_num):
         self.level = levels.load_level(level_num)
@@ -76,10 +89,9 @@ while True:
 
     debug.debug(final_display, 0, clock.get_fps())
     debug.debug(final_display, 1, play_screen.player.x_velocity, play_screen.player.y_velocity)
+
     point1 = (play_screen.player.x, play_screen.player.y)
     point2 = (point1[0] + play_screen.player.x_velocity, point1[1] + play_screen.player.y_velocity)
     debug.debug_line(final_display, point1, point2)
-    # if events.mouse.held:
-        # screen_update(5)
-    # else:
+
     screen_update(60)
