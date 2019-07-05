@@ -40,8 +40,10 @@ class PlayScreen:
     def update(self):
         events.update()
 
-        if events.mouse.held:
-            if events.mouse.clicked:
+        mouse = events.mouse
+
+        if mouse.held:
+            if mouse.clicked:
                 self.slowmo_factor = self.SLOWMO_MAX
 
             if self.slowmo_factor > 1.0:
@@ -50,13 +52,16 @@ class PlayScreen:
                 if self.slowmo_factor < 1.0:
                     self.slowmo_factor = 1.0
 
-        if events.mouse.released:
+            self.player.rotate_towards(mouse.position, self.slowmo_factor)
+
+        if mouse.released:
             new_ball = ball.Ball(self.player.position, self.player.radius - 1)
             old_ball = self.player
+            new_ball.angle = old_ball.angle
             self.player = new_ball
             self.balls.append(new_ball)
 
-            self.player.launch_towards(events.mouse.position)
+            self.player.launch_towards(mouse.position)
             old_ball.x_velocity = -self.player.x_velocity
             old_ball.y_velocity = -self.player.y_velocity
             self.slowmo_factor = 1.0
@@ -89,9 +94,6 @@ while True:
 
     debug.debug(final_display, 0, clock.get_fps())
     debug.debug(final_display, 1, play_screen.player.x_velocity, play_screen.player.y_velocity)
-
-    point1 = (play_screen.player.x, play_screen.player.y)
-    point2 = (point1[0] + play_screen.player.x_velocity, point1[1] + play_screen.player.y_velocity)
-    debug.debug_line(final_display, point1, point2)
+    debug.debug(final_display, 2, play_screen.player.angle)
 
     screen_update(60)

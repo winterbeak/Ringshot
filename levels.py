@@ -232,12 +232,22 @@ def tiles_touching_ball(radius, ball_center):
     center_x, center_y = ball_center
     for point_num in range(_BALL_CHECKS):
         angle = math.pi * 2.0 * (point_num / _BALL_CHECKS)
-        delta_x, delta_y = geometry.vector_to_difference(angle, radius)
+        delta_x, delta_y = geometry.vector_to_difference(angle, radius - 1)
 
         point = (center_x + delta_x, center_y + delta_y)
         tile_list.append(grid_tile_position(point))
 
     return set(tile_list)
+
+
+def is_ground(tile_type):
+    if tile_type == BLOCKS_WALL:
+        return True
+    if tile_type == BLOCKS_TOPLEFT:
+        return True
+    if tile_type == BLOCKS_TOPRIGHT:
+        return True
+    return False
 
 
 class Layer:

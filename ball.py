@@ -11,6 +11,7 @@ class Ball:
     DEBUG_COLOR = constants.MAGENTA
     BLIP_COLOR = constants.CYAN
     CHECK_STEPS = 2  # how many intermediate frames to check between frames
+    GROUNDED_THRESHOLD = 1.3  # what speed to start grounding the ball at
 
     def __init__(self, position, radius, bounce_decay=0.7):
         self.x = position[0]
@@ -23,12 +24,15 @@ class Ball:
         self.radius = radius
         self.angle = 0
         self.angular_velocity = 0.0
+        # self.grounded = False
 
         # bounce_decay is how bouncy the ball is.  value should be between
         # 0 and 1.  settting bounce decay greater than 1 is wild, though!
         # specifically, bounce_decay measures what percentage of the initial
         # speed is kept after bouncing.
-        self.bounce_decay = bounce_decay
+        self.NORMAL_BOUNCE_DECAY = bounce_decay
+        self.x_bounce_decay = bounce_decay
+        self.y_bounce_decay = bounce_decay
 
     def draw_debug(self, surface, color=DEBUG_COLOR):
         position = (int(self.x), int(self.y))  # pygame circles use integers
@@ -38,7 +42,7 @@ class Ball:
         blip_distance = geometry.vector_to_difference(self.angle, self.radius)
         blip_x = int(self.x + blip_distance[0])
         blip_y = int(self.y + blip_distance[1])
-        pygame.draw.circle(surface, self.BLIP_COLOR, (blip_x, blip_y), 1)
+        pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 3)
 
     def move(self, distance):
         """Instantly moves the ball a certain distance from its
@@ -57,7 +61,8 @@ class Ball:
         """Moves the ball according to its velocity and acceleration.  Also
         rotates it based on how much it should rotate.
 
-        slowmo_factor is how much the ball slows down due to slowmo."""
+        slowmo_factor is how much the ball slows down due to slowmo.
+        """
         self.y_acceleration = constants.GRAVITY
 
         distance_x = self.x_velocity / slowmo_factor
@@ -76,9 +81,24 @@ class Ball:
         y = self.y + self.y_velocity / slowmo_factor
         return x, y
 
+    # def update_grounded(self, level):
+    #     if abs(self.y_velocity) > self.GROUNDED_THRESHOLD:
+    #         self.grounded = False
+    #         return
+    #
+    #     point_below = (self.x, self.y + self.radius + self.GROUNDED_THRESHOLD)
+    #     grid_position_below = levels.grid_tile_position(point_below)
+    #     tile = level.layers[levels.LAYER_BLOCKS].tile_at(grid_position_below)
+    #
+    #     if levels.is_ground(tile):
+    #         self.grounded = True
+    #     else:
+    #         self.grounded = False
+
     def check_collision(self, level, slowmo_factor=1.0):
         """Updates the player's position and velocity based on where they
-        are going in the level."""
+        are going in the level.
+        """
         full_step = self.next_position(slowmo_factor)
         for step in range(1, self.CHECK_STEPS + 1):
             multiplier = step / self.CHECK_STEPS
@@ -121,12 +141,18 @@ class Ball:
                 # velocity stuff
                 # y is negative since up is negative and down is positive!
                 # pygame sure is weird.
-                new_velocity_x = reflected[0] * self.bounce_decay
-                new_velocity_y = -reflected[1] * self.bounce_decay
+                new_velocity_x = reflected[0] * self.x_bounce_decay
+                new_velocity_y = -reflected[1] * self.y_bounce_decay
                 self.x_velocity = new_velocity_x
                 self.y_velocity = new_velocity_y
 
-                return
+                break
+
+        # self.update_grounded(level)
+        if abs(self.y_velocity) < self.GROUNDED_THRESHOLD:
+            self.y_bounce_decay = self.y_velocity / 2
+        else:
+            self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
 
     def update_angular_velocity(self, contact_slope):
         """Updates the angular velocity of the ball (how fast it spins).
@@ -153,3 +179,24 @@ class Ball:
     def launch_towards(self, position, power=12.0):
         angle = geometry.angle_between(self.position, position)
         self.launch(angle, power)
+
+    def rotate_towards(self, position, slowmo_factor=1.0):
+        """Rotate the ball to face towards a specific position.
+
+        Does not rotate instantly.
+        """
+        angle = geometry.angle_between(self.position, position)
+        delta_angle = angle - self.angle
+
+        if delta_angle > math.pi:
+            delta_angle = -(math.pi * 2 - delta_angle)
+        elif delta_angle < -math.pi:
+            delta_angle = -(-math.pi * 2 - delta_angle)
+
+        self.angle += delta_angle / slowmo_factor
+
+        while self.angle < -math.pi:
+            self.angle += math.pi * 2
+
+        while self.angle > math.pi:
+            self.angle -= math.pi * 2
