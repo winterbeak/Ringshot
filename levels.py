@@ -12,8 +12,8 @@ pygame.init()
 # 2D matrix that represents the level, the x coordinate comes first and the
 # y coordinate comes second.
 
-WIDTH = 25  # measured in tiles, not pixels
-HEIGHT = 25
+WIDTH = constants.LEVEL_WIDTH
+HEIGHT = constants.LEVEL_HEIGHT
 PIXEL_WIDTH = WIDTH * constants.TILE_WIDTH
 PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 
@@ -135,16 +135,20 @@ def string_to_level(string):
     """Takes a string and converts it into a Level object."""
     strings = string.split(LAYER_SEPARATOR)
 
-    start_end_string = strings[0]
+    shell_strings = strings[0]
+    shell_values = [int(shell) for shell in shell_strings.split()]
+
+    start_end_string = strings[1]
     start_end_values = [int(value) for value in start_end_string.split()]
 
-    layer_strings = strings[1:]
+    layer_strings = strings[2:]
     layers = [string_to_layer(layer_string) for layer_string in layer_strings]
 
     new_level = Level()
     new_level.layers = layers
     new_level.start_tile = (start_end_values[0], start_end_values[1])
     new_level.end_tile = (start_end_values[2], start_end_values[3])
+    new_level.start_shells = shell_values
     return new_level
 
 
@@ -334,14 +338,17 @@ class Level:
         self.layers = [Layer() for _ in range(LAYER_COUNT)]
         self.start_tile = (WIDTH // 2, HEIGHT // 2)
         self.end_tile = (WIDTH // 2 + 5, HEIGHT // 2)
+        self.start_shells = [0]  # the shells that the ball starts with
 
     def to_string(self):
         """Converts the level into a string, for writing to files."""
+        shell_string = " ".join([str(shell) for shell in self.start_shells])
         start_string = str(self.start_tile[0]) + " " + str(self.start_tile[1])
         end_string = str(self.end_tile[0]) + " " + str(self.end_tile[1])
         layer_strings = [layer.to_string() for layer in self.layers]
 
-        final_string = start_string + " " + end_string + LAYER_SEPARATOR
+        final_string = shell_string + LAYER_SEPARATOR
+        final_string += start_string + " " + end_string + LAYER_SEPARATOR
         final_string += LAYER_SEPARATOR.join(layer_strings)
         return final_string
 

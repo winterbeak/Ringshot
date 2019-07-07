@@ -5,6 +5,7 @@ import graphics
 import levels
 import constants
 import events
+import ball
 # import debug
 
 
@@ -87,6 +88,10 @@ class ButtonSet:
     def pop(self):
         self.buttons.pop()
         self.button_count -= 1
+
+    def slice_to(self, index):
+        self.buttons = self.buttons[:index]
+        self.button_count = index
 
     def show(self, button_id):
         self.buttons[button_id].hidden = False
@@ -241,6 +246,9 @@ class Editor:
     TOOLBOX_LEFT = 225
     TOOLBOX_TILE_WIDTH = constants.TILE_WIDTH + 5
     TOOLBOX_TILE_HEIGHT = constants.TILE_HEIGHT + 5
+    SHELLS_TOP = 30
+    SHELLS_SPACING = 30
+    SHELLS_CENTER = SCREEN_WIDTH - 50
 
     def __init__(self):
         self.undos = []
@@ -256,11 +264,15 @@ class Editor:
 
         self.level_surface = graphics.new_surface(constants.SCREEN_SIZE)
         self.ui_surface = graphics.new_surface(SCREEN_SIZE)
-        self.init_editor_ui()
 
         self.SAVE_AND_EXIT = 0
+        self.ADD_SHELL = 1
+        self.REMOVE_SHELL = 2
+        self.FIRST_SHELL_BUTTON = 3
         self.buttons = ButtonSet()
         self.buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
+        self.buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 230)))
+        self.buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 200)))
 
         self.placing_start = False
         self.placing_end = False
@@ -273,6 +285,8 @@ class Editor:
 
         self.level_surface.fill(constants.TRANSPARENT)
         self.level.draw_debug(editor.level_surface, (0, 0))
+
+        self.update_shell_picker(self.ui_surface)
 
     def update(self):
         self.buttons.update()
@@ -307,10 +321,25 @@ class Editor:
                 self.add_undo(self.changes_grid)
                 self.reset_changes_grid()
 
-            if self.buttons.touch_mouse == self.SAVE_AND_EXIT:
+            mouse_button = self.buttons.touch_mouse
+            if mouse_button == self.SAVE_AND_EXIT:
                 levels.save_level(self.level_num, self.level)
                 self.switch_to_menu = True
+
                 return
+
+            elif mouse_button == self.ADD_SHELL:
+                self.add_shell()
+            elif mouse_button == self.REMOVE_SHELL:
+                self.remove_shell()
+            elif mouse_button >= self.FIRST_SHELL_BUTTON:
+                shell_num = (mouse_button - self.FIRST_SHELL_BUTTON) // 2 + 1
+
+                # checks if it's a left or right button
+                if (mouse_button - self.FIRST_SHELL_BUTTON) % 2:
+                    self.shell_left(shell_num)
+                else:
+                    self.shell_right(shell_num)
 
             if self.selected_single_place():
                 if self.selected_tile == levels.BLOCKS_START:
@@ -358,7 +387,7 @@ class Editor:
 
     def draw(self, surface):
         surface.blit(self.ui_surface, (0, 0))
-        self.draw_editor_selection(surface)
+        self.draw_toolbox_selection(surface)
         surface.blit(self.level_surface, (0, 0))
         self.draw_mouse_tile(surface)
         self.buttons.draw(surface)
@@ -370,29 +399,18 @@ class Editor:
             self.selected_tile = levels.EMPTY
 
     def init_editor_ui(self):
-        self.draw_editor_grid()
-        self.draw_editor_toolbox()
+        graphics.draw_tile_grid(self.ui_surface, (30, 30, 30))
+        self.draw_toolbox(self.ui_surface)
+        self.update_shell_picker(self.ui_surface)
 
-    def draw_editor_grid(self):
-        color = (30, 30, 30)
-        for row in range(levels.HEIGHT):
-            start = (0, row * constants.TILE_HEIGHT - 1)
-            end = (levels.PIXEL_WIDTH, row * constants.TILE_HEIGHT - 1)
-            pygame.draw.line(self.ui_surface, color, start, end, 2)
-
-        for column in range(levels.WIDTH):
-            start = (column * constants.TILE_WIDTH - 1, 0)
-            end = (column * constants.TILE_WIDTH - 1, levels.PIXEL_HEIGHT)
-            pygame.draw.line(self.ui_surface, color, start, end, 2)
-
-    def draw_editor_toolbox(self):
+    def draw_toolbox(self, surface):
         # draws tiles
         y = self.TOOLBOX_TOP
         for layer in range(levels.LAYER_COUNT):
             x = self.TOOLBOX_LEFT
 
             for tile in range(1, levels.LAYER_ID_COUNTS[layer] + 1):
-                draw_tile(self.ui_surface, layer, tile, (x, y))
+                draw_tile(surface, layer, tile, (x, y))
                 x += self.TOOLBOX_TILE_WIDTH
 
             y += self.TOOLBOX_TILE_HEIGHT
@@ -401,11 +419,11 @@ class Editor:
         x = self.TOOLBOX_LEFT + 6
         for tile in range(1, max(levels.LAYER_ID_COUNTS) + 1):
             number = TAHOMA.render(str(tile), False, constants.WHITE)
-            self.ui_surface.blit(number, (x, y))
+            surface.blit(number, (x, y))
 
             x += self.TOOLBOX_TILE_WIDTH
 
-    def draw_editor_selection(self, surface):
+    def draw_toolbox_selection(self, surface):
         tile_width = self.TOOLBOX_TILE_WIDTH
         tile_height = self.TOOLBOX_TILE_HEIGHT
         layer = self.selected_layer
@@ -423,6 +441,56 @@ class Editor:
         tile_h = constants.TILE_HEIGHT + 5
         tile_rect = (tile_x, tile_y, tile_w, tile_h)
         pygame.draw.rect(surface, constants.MAGENTA, tile_rect, 2)
+
+    def add_shell(self):
+        self.level.start_shells.insert(0, ball.NORMAL)
+        self.update_shell_picker(self.ui_surface)
+
+    def remove_shell(self):
+        if len(self.level.start_shells) > 1:
+            self.level.start_shells.pop(0)
+            self.update_shell_picker(self.ui_surface)
+
+    def shell_left(self, shell_num):
+        index = len(self.level.start_shells) - 1 - shell_num
+        if self.level.start_shells[index] == 1:
+            self.level.start_shells[index] = ball.SHELL_TYPES
+        else:
+            self.level.start_shells[index] = self.level.start_shells[index] - 1
+        self.update_shell_picker(self.ui_surface)
+
+    def shell_right(self, shell_num):
+        index = len(self.level.start_shells) - 1 - shell_num
+        if self.level.start_shells[index] == ball.SHELL_TYPES:
+            self.level.start_shells[index] = 1
+        else:
+            self.level.start_shells[index] = self.level.start_shells[index] + 1
+        self.update_shell_picker(self.ui_surface)
+
+    def update_shell_picker(self, surface):
+        cover_rect = (SCREEN_WIDTH - 100, 0, 100, SCREEN_HEIGHT - 100)
+        pygame.draw.rect(surface, constants.BLACK, cover_rect)
+
+        self.buttons.slice_to(self.FIRST_SHELL_BUTTON)
+
+        x = self.SHELLS_CENTER
+        y = self.SHELLS_TOP
+        radius = ball.SMALLEST_RADIUS
+
+        color = ball.SHELL_DEBUG_COLORS[ball.CENTER]
+        pygame.draw.circle(surface, color, (x, y), radius)
+        y += self.SHELLS_SPACING
+        radius += ball.SHELL_WIDTH
+
+        for shell in reversed(self.level.start_shells[:-1]):
+            color = ball.SHELL_DEBUG_COLORS[shell]
+            pygame.draw.circle(surface, color, (x, y), radius, ball.SHELL_WIDTH)
+
+            self.buttons.add(small_button((x - 45, y - 15)))
+            self.buttons.add(small_button((x + 15, y - 15)))
+
+            y += self.SHELLS_SPACING
+            radius += ball.SHELL_WIDTH
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at tile_position to tile_id.
@@ -501,6 +569,7 @@ while True:
             main_menu.switch_to_editor = False
             current_screen = EDITOR
             editor.load_level(main_menu.level_clicked - 3)
+            editor.init_editor_ui()
 
     elif current_screen == EDITOR:
         editor.update()
@@ -511,5 +580,6 @@ while True:
             editor.switch_to_menu = False
             current_screen = MENU
             main_menu.update_level_buttons()
+            print(editor.level.start_shells)
 
     screen_update()

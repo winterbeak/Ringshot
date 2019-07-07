@@ -5,6 +5,20 @@ import constants
 import geometry
 import levels
 
+# each "layer" of the ball is called a shell.
+SHELL_TYPES = 2
+CENTER = 0  # the ball at the very center, cannot be shot
+NORMAL = 1  # the normal, 100% tangible shell type
+GHOST = 2  # the paranormal, 0% tangible shell type
+SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.CYAN)
+
+SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
+SHELL_WIDTH = 2
+
+
+def first_ball_radius(level):
+    return (len(level.start_shells) - 1) * SHELL_WIDTH + SMALLEST_RADIUS
+
 
 class Ball:
     """A simulated ball that experiences gravity and rolls."""
@@ -13,7 +27,7 @@ class Ball:
     CHECK_STEPS = 2  # how many intermediate frames to check between frames
     GROUNDED_THRESHOLD = 1.3  # what speed to start grounding the ball at
 
-    def __init__(self, position, radius, bounce_decay=0.7):
+    def __init__(self, position, radius, shell_type, bounce_decay=0.7):
         self.x = position[0]
         self.y = position[1]
         self.x_velocity = 0.0
@@ -34,9 +48,26 @@ class Ball:
         self.x_bounce_decay = bounce_decay
         self.y_bounce_decay = bounce_decay
 
-    def draw_debug(self, surface, color=DEBUG_COLOR):
+        self.is_player = False
+        self.containing_shells = None
+        self.shell_type = shell_type
+
+    def draw_debug(self, surface):
         position = (int(self.x), int(self.y))  # pygame circles use integers
-        pygame.draw.circle(surface, color, position, self.radius)
+
+        if self.is_player:
+            radius = self.radius
+            color = SHELL_DEBUG_COLORS[self.shell_type]
+            pygame.draw.circle(surface, color, position, radius)
+
+            for shell in self.containing_shells:
+                radius -= SHELL_WIDTH
+                color = SHELL_DEBUG_COLORS[shell]
+                pygame.draw.circle(surface, color, position, radius)
+
+        else:
+            color = SHELL_DEBUG_COLORS[self.shell_type]
+            pygame.draw.circle(surface, color, position, self.radius, 1)
 
         # draws a little pixel representing the ball's rotation
         blip_distance = geometry.vector_to_difference(self.angle, self.radius)
@@ -153,6 +184,12 @@ class Ball:
             self.y_bounce_decay = self.y_velocity / 2
         else:
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
+
+    def out_of_bounds(self):
+        if -100 <= self.x < constants.SCREEN_WIDTH + 100:
+            if -100 <= self.y < constants.SCREEN_HEIGHT + 100:
+                return False
+        return True
 
     def update_angular_velocity(self, contact_slope):
         """Updates the angular velocity of the ball (how fast it spins).

@@ -29,6 +29,26 @@ def border(surface, color, thickness):
     pygame.draw.rect(surface, color, rect, thickness)
 
 
+def draw_grid(surface, color, columns, rows, cell_width, cell_height):
+    for row in range(rows):
+        start = (0, row * cell_height - 1)
+        end = (columns * cell_width, row * cell_height - 1)
+        pygame.draw.line(surface, color, start, end, 2)
+
+    for column in range(columns):
+        start = (column * cell_width - 1, 0)
+        end = (column * cell_width - 1, rows * cell_height)
+        pygame.draw.line(surface, color, start, end, 2)
+
+
+def draw_tile_grid(surface, color):
+    columns = constants.LEVEL_WIDTH
+    rows = constants.LEVEL_HEIGHT
+    width = constants.TILE_WIDTH
+    height = constants.TILE_HEIGHT
+    draw_grid(surface, color, columns, rows, width, height)
+
+
 class Spritesheet:
     """Stores a spritesheet made of all of a thing's animations."""
     def __init__(self, sheet_path, frame_w, frame_h, frame_counts):

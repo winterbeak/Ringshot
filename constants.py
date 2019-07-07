@@ -26,3 +26,6 @@ TILE_HEIGHT = 20
 LAYERS = 2
 LAYER_BLOCKS = 0
 LAYER_BUTTONS = 1
+
+LEVEL_WIDTH = 25  # measured in tiles, not pixels
+LEVEL_HEIGHT = 25
