@@ -37,10 +37,13 @@ class PlayScreen:
         # make sure you DONT DRAW THE BUTTONS on block_surface
         self.block_surface = graphics.new_surface(constants.SCREEN_SIZE)
 
+        self.start_position = constants.SCREEN_MIDDLE
+
     def update(self):
         events.update()
 
         mouse = events.mouse
+        keys = events.keys
 
         if mouse.held:
             if mouse.clicked:
@@ -66,6 +69,9 @@ class PlayScreen:
             old_ball.y_velocity = -self.player.y_velocity
             self.slowmo_factor = 1.0
 
+        if keys.pressed_key == pygame.K_r:
+            self.reset_level()
+
         for ball_ in self.balls:
             ball_.check_collision(self.level, self.slowmo_factor)
             ball_.update_body(self.slowmo_factor)
@@ -78,11 +84,19 @@ class PlayScreen:
             else:
                 ball_.draw_debug(surface)
 
+    def reset_level(self):
+        self.balls = [ball.Ball(self.start_position, 10)]
+        self.player = self.balls[0]
+
     def load_level(self, level_num):
         self.level = levels.load_level(level_num)
 
         block_layer = levels.LAYER_BLOCKS
         self.level.draw_debug_layer(self.block_surface, block_layer, (0, 0))
+
+        start_tile = self.level.start_tile
+        self.start_position = levels.middle_pixel(start_tile)
+        self.player.goto(self.start_position)
 
 
 play_screen = PlayScreen()

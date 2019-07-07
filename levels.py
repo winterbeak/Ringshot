@@ -17,19 +17,19 @@ HEIGHT = 25
 PIXEL_WIDTH = WIDTH * constants.TILE_WIDTH
 PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 
-LAYER_ID_COUNTS = (6, 5)
+LAYER_ID_COUNTS = (8, 5)
 EMPTY = 1
 BLOCKS_WALL = 2
 
-# The corner blocks are named based off of which corner is "completely filled".
-# For example, take this 3x3 representation of a TOPLEFT block:
-#  ##/  The TOPLEFT corner is completely filled, the TOPRIGHT and BOTTOMLEFT
-#  #/   corners are only half filled, and the BOTTOMRIGHT corner is not
-#  /    filled at all.
+# The corner blocks are named based off of the two flat sides of the block.
+# For example, on BLOCKS_TOPLEFT, the top and left sides are flat, and the
+# diagonal is from the topright to the bottomleft.
 BLOCKS_TOPLEFT = 3
 BLOCKS_TOPRIGHT = 4
 BLOCKS_BOTTOMRIGHT = 5
 BLOCKS_BOTTOMLEFT = 6
+BLOCKS_START = 7
+BLOCKS_END = 8
 
 BUTTONS_LEFT = 2
 BUTTONS_UP = 3
@@ -40,6 +40,10 @@ BUTTONS_DOWN = 5
 LAYER_COUNT = constants.LAYERS
 LAYER_BLOCKS = constants.LAYER_BLOCKS
 LAYER_BUTTONS = constants.LAYER_BUTTONS
+
+
+DEBUG_START_COLOR = constants.YELLOW
+DEBUG_END_COLOR = constants.MAGENTA
 
 
 # these are the characters that split up the different parts of levels.txt.
@@ -129,12 +133,18 @@ def string_to_layer(string):
 
 def string_to_level(string):
     """Takes a string and converts it into a Level object."""
-    layer_strings = string.split(LAYER_SEPARATOR)
+    strings = string.split(LAYER_SEPARATOR)
 
+    start_end_string = strings[0]
+    start_end_values = [int(value) for value in start_end_string.split()]
+
+    layer_strings = strings[1:]
     layers = [string_to_layer(layer_string) for layer_string in layer_strings]
 
     new_level = Level()
     new_level.layers = layers
+    new_level.start_tile = (start_end_values[0], start_end_values[1])
+    new_level.end_tile = (start_end_values[2], start_end_values[3])
     return new_level
 
 
@@ -155,6 +165,14 @@ def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
         if tile_id == BLOCKS_WALL:
             rect = (x, y, tile_width, tile_height)
             pygame.draw.rect(surface, constants.WHITE, rect)
+
+        elif tile_id == BLOCKS_START:
+            rect = (x, y, tile_width, tile_height)
+            pygame.draw.rect(surface, DEBUG_START_COLOR, rect)
+
+        elif tile_id == BLOCKS_END:
+            rect = (x, y, tile_width, tile_height)
+            pygame.draw.rect(surface, DEBUG_END_COLOR, rect)
 
         else:
             top_left = (x, y)
@@ -216,6 +234,27 @@ def grid_pixel_position(point):
         return x, y
     else:
         return None
+
+
+def tile_pixel_position(tile_position):
+    """Returns the top left corner of a given tile."""
+    column, row = tile_position
+    return column * constants.TILE_WIDTH, row * constants.TILE_HEIGHT
+
+
+def tile_rect(pixel_position):
+    """Returns a rectangle the size of a tile.
+
+    pixel_position is the topleft of the tile."""
+    width = constants.TILE_WIDTH
+    height = constants.TILE_HEIGHT
+    return pixel_position[0], pixel_position[1], width, height
+
+
+def middle_pixel(tile_position):
+    x = tile_position[0] * constants.TILE_WIDTH + constants.TILE_WIDTH // 2
+    y = tile_position[1] * constants.TILE_HEIGHT + constants.TILE_HEIGHT // 2
+    return x, y
 
 
 _BALL_CHECKS = 8
@@ -293,12 +332,17 @@ class Layer:
 class Level:
     def __init__(self):
         self.layers = [Layer() for _ in range(LAYER_COUNT)]
+        self.start_tile = (WIDTH // 2, HEIGHT // 2)
+        self.end_tile = (WIDTH // 2 + 5, HEIGHT // 2)
 
     def to_string(self):
         """Converts the level into a string, for writing to files."""
+        start_string = str(self.start_tile[0]) + " " + str(self.start_tile[1])
+        end_string = str(self.end_tile[0]) + " " + str(self.end_tile[1])
         layer_strings = [layer.to_string() for layer in self.layers]
 
-        final_string = LAYER_SEPARATOR.join(layer_strings)
+        final_string = start_string + " " + end_string + LAYER_SEPARATOR
+        final_string += LAYER_SEPARATOR.join(layer_strings)
         return final_string
 
     def tile_at(self, tile_position):
@@ -319,6 +363,8 @@ class Level:
                     tile = self.tile_at((layer, column, row))
                     draw_debug_tile(surface, layer, tile, (x, y))
 
+        self.draw_debug_start_end(surface, pixel_position)
+
     def draw_debug_layer(self, surface, layer, pixel_position):
         """Draws only one layer in the level, simplified, without sprites."""
         start_x, start_y = pixel_position
@@ -329,6 +375,18 @@ class Level:
                 y = start_y + row * constants.TILE_HEIGHT
                 tile = self.tile_at((layer, column, row))
                 draw_debug_tile(surface, layer, tile, (x, y))
+
+    def draw_debug_start_end(self, surface, pixel_position):
+        """Draws the start and end of the level, simplified, without sprites."""
+        x, y = tile_pixel_position(self.start_tile)
+        x += pixel_position[0]
+        y += pixel_position[1]
+        pygame.draw.rect(surface, DEBUG_START_COLOR, tile_rect((x, y)))
+
+        x, y = tile_pixel_position(self.end_tile)
+        x += pixel_position[0]
+        y += pixel_position[1]
+        pygame.draw.rect(surface, DEBUG_END_COLOR, tile_rect((x, y)))
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at a certain position.

@@ -262,7 +262,17 @@ class Editor:
         self.buttons = ButtonSet()
         self.buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
 
+        self.placing_start = False
+        self.placing_end = False
+
         self.switch_to_menu = False
+
+    def load_level(self, level_num):
+        self.level_num = level_num
+        self.level = levels.load_level(level_num)
+
+        self.level_surface.fill(constants.TRANSPARENT)
+        self.level.draw_debug(editor.level_surface, (0, 0))
 
     def update(self):
         self.buttons.update()
@@ -302,8 +312,49 @@ class Editor:
                 self.switch_to_menu = True
                 return
 
+            if self.selected_single_place():
+                if self.selected_tile == levels.BLOCKS_START:
+                    self.change_start()
+
+                elif self.selected_tile == levels.BLOCKS_END:
+                    self.change_end()
+
         if events.mouse.held:
-            self.change_tile_at_mouse()
+            if not self.selected_single_place():
+                mouse_tile = levels.grid_tile_position(events.mouse.position)
+                if mouse_tile != self.level.start_tile:
+                    if mouse_tile != self.level.end_tile:
+                        self.change_tile_at_mouse()
+
+    def selected_single_place(self):
+        """Returns whether the current tile is a tile which is placed only
+        once.  Currently only means the start tile and the end tile."""
+        if self.selected_layer == levels.LAYER_BLOCKS:
+            if self.selected_tile == levels.BLOCKS_START:
+                return True
+            if self.selected_tile == levels.BLOCKS_END:
+                return True
+        return False
+
+    def change_start(self):
+        old_start = self.level.start_tile
+        rect = levels.tile_rect(levels.tile_pixel_position(old_start))
+        pygame.draw.rect(self.level_surface, constants.TRANSPARENT, rect)
+
+        mouse_tile = levels.grid_tile_position(events.mouse.position)
+        self.level.start_tile = mouse_tile
+        rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
+        pygame.draw.rect(self.level_surface, levels.DEBUG_START_COLOR, rect)
+
+    def change_end(self):
+        old_end = self.level.end_tile
+        rect = levels.tile_rect(levels.tile_pixel_position(old_end))
+        pygame.draw.rect(self.level_surface, constants.TRANSPARENT, rect)
+
+        mouse_tile = levels.grid_tile_position(events.mouse.position)
+        self.level.end_tile = mouse_tile
+        rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
+        pygame.draw.rect(self.level_surface, levels.DEBUG_END_COLOR, rect)
 
     def draw(self, surface):
         surface.blit(self.ui_surface, (0, 0))
@@ -449,11 +500,7 @@ while True:
         if main_menu.switch_to_editor:
             main_menu.switch_to_editor = False
             current_screen = EDITOR
-            editor.level_num = main_menu.level_clicked - 3
-            editor.level = levels.load_level(editor.level_num)
-
-            editor.level_surface.fill(constants.TRANSPARENT)
-            editor.level.draw_debug(editor.level_surface, (0, 0))
+            editor.load_level(main_menu.level_clicked - 3)
 
     elif current_screen == EDITOR:
         editor.update()
