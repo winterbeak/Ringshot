@@ -62,6 +62,11 @@ class Button:
 
 
 class ButtonSet:
+    ARROW_LEFT = 0
+    ARROW_UP = 1
+    ARROW_RIGHT = 2
+    ARROW_DOWN = 3
+
     def __init__(self):
         self.buttons = []
         self.touch_mouse = -1
@@ -109,6 +114,36 @@ class ButtonSet:
     def deselect(self, button_id):
         self.buttons[button_id].selected = False
 
+    def draw_plus(self, button_id):
+        surface = self.buttons[button_id].sprite
+
+        vertical_rect = (13, 5, 4, 20)
+        surface.fill(constants.WHITE, vertical_rect)
+
+        horizontal_rect = (5, 13, 20, 4)
+        surface.fill(constants.WHITE, horizontal_rect)
+
+    def draw_minus(self, button_id):
+        surface = self.buttons[button_id].sprite
+
+        rect = (5, 13, 20, 4)
+        surface.fill(constants.WHITE, rect)
+
+    def draw_arrow(self, button_id, direction):
+        surface = self.buttons[button_id].sprite
+
+        if direction == self.ARROW_LEFT:
+            points = ((5, 15), (25, 5), (25, 25))
+        elif direction == self.ARROW_UP:
+            points = ((15, 5), (5, 25), (25, 25))
+        elif direction == self.ARROW_RIGHT:
+            points = ((25, 15), (5, 5), (5, 25))
+        elif direction == self.ARROW_DOWN:
+            points = ((15, 25), (5, 5), (25, 5))
+        else:
+            return
+        pygame.draw.polygon(surface, constants.WHITE, points)
+
 
 def small_button(position):
     width = 30
@@ -149,6 +184,13 @@ class MainMenu:
         buttons.add(small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT // 2 + 85)))
         buttons.add(small_button((SCREEN_WIDTH // 2 - 10, 20)))
         buttons.add(small_button((SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT - 40)))
+
+        buttons.draw_plus(self.ADD)
+        buttons.draw_arrow(self.UP, buttons.ARROW_UP)
+        buttons.draw_arrow(self.DOWN, buttons.ARROW_DOWN)
+        buttons.draw_arrow(self.LEVEL_UP, buttons.ARROW_UP)
+        buttons.draw_arrow(self.LEVEL_DOWN, buttons.ARROW_DOWN)
+
         self.buttons = buttons
 
         self.page = 0
@@ -320,10 +362,17 @@ class Editor:
         self.ADD_SHELL = 1
         self.REMOVE_SHELL = 2
         self.FIRST_SHELL_BUTTON = 3
-        self.buttons = ButtonSet()
-        self.buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
-        self.buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 230)))
-        self.buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 200)))
+
+        buttons = ButtonSet()
+        buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
+        buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 230)))
+        buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 200)))
+
+        buttons.draw_arrow(self.SAVE_AND_EXIT, buttons.ARROW_LEFT)
+        buttons.draw_plus(self.ADD_SHELL)
+        buttons.draw_minus(self.REMOVE_SHELL)
+
+        self.buttons = buttons
 
         self.placing_start = False
         self.placing_end = False
@@ -544,7 +593,9 @@ class Editor:
             pygame.draw.circle(surface, color, (x, y), radius, ball.SHELL_WIDTH)
 
             self.buttons.add(small_button((x - 45, y - 15)))
+            self.buttons.draw_arrow(-1, self.buttons.ARROW_LEFT)
             self.buttons.add(small_button((x + 15, y - 15)))
+            self.buttons.draw_arrow(-1, self.buttons.ARROW_RIGHT)
 
             y += self.SHELLS_SPACING
             radius += ball.SHELL_WIDTH
