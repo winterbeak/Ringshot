@@ -284,7 +284,7 @@ class Editor:
         self.level = levels.load_level(level_num)
 
         self.level_surface.fill(constants.TRANSPARENT)
-        self.level.draw_debug(editor.level_surface, (0, 0))
+        self.level.draw_debug(self.level_surface, (0, 0))
 
         self.update_shell_picker(self.ui_surface)
 
@@ -355,6 +355,13 @@ class Editor:
                     if mouse_tile != self.level.end_tile:
                         self.change_tile_at_mouse()
 
+    def draw(self, surface):
+        surface.blit(self.ui_surface, (0, 0))
+        self.draw_toolbox_selection(surface)
+        surface.blit(self.level_surface, (0, 0))
+        self.draw_mouse_tile(surface)
+        self.buttons.draw(surface)
+
     def selected_single_place(self):
         """Returns whether the current tile is a tile which is placed only
         once.  Currently only means the start tile and the end tile."""
@@ -384,13 +391,6 @@ class Editor:
         self.level.end_tile = mouse_tile
         rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
         pygame.draw.rect(self.level_surface, levels.DEBUG_END_COLOR, rect)
-
-    def draw(self, surface):
-        surface.blit(self.ui_surface, (0, 0))
-        self.draw_toolbox_selection(surface)
-        surface.blit(self.level_surface, (0, 0))
-        self.draw_mouse_tile(surface)
-        self.buttons.draw(surface)
 
     def change_layer(self, layer):
         """Changes the currently selected layer to the specified layer."""
@@ -498,10 +498,7 @@ class Editor:
         tile_position is a (layer, column, row) triplet.
         """
         self.level.change_tile(tile_id, tile_position)
-
-        x = tile_position[1] * constants.TILE_WIDTH
-        y = tile_position[2] * constants.TILE_HEIGHT
-        draw_tile(self.level_surface, tile_position[0], tile_id, (x, y))
+        self.level.draw_tile_at(self.level_surface, tile_position[1:])
 
     def draw_mouse_tile(self, surface):
         """Draws the tile that the mouse is holding, onto the editor grid."""

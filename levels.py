@@ -20,7 +20,6 @@ PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 LAYER_ID_COUNTS = (8, 9)
 EMPTY = 1
 BLOCKS_WALL = 2
-
 # The corner blocks are named based off of the two flat sides of the block.
 # For example, on BLOCKS_TOPLEFT, the top and left sides are flat, and the
 # diagonal is from the topright to the bottomleft.
@@ -401,21 +400,35 @@ class Level:
 
     def tile_at(self, tile_position):
         """Returns the tile type that is occupying a given position.
-        tile_position is a (layer, column, row) triplet."""
+
+        tile_position is a (layer, column, row) triplet.
+        """
         layer = self.layers[tile_position[0]]
         return layer.tile_at((tile_position[1], tile_position[2]))
 
+    def draw_tile_at(self, surface, tile_position, grid_top_left=(0, 0)):
+        """Draws the tiles (on all layers) occupying a given position.
+
+        tile_position is a (column, row)
+        """
+        x_offset, y_offset = grid_top_left
+        tile_pixel = tile_pixel_position(tile_position)
+        pixel_position = (x_offset + tile_pixel[0], y_offset + tile_pixel[1])
+
+        rect = tile_rect(pixel_position)
+        pygame.draw.rect(surface, constants.TRANSPARENT, rect)
+
+        for layer in range(LAYER_COUNT):
+            tile = self.layers[layer].tile_at(tile_position)
+
+            if tile != EMPTY:
+                draw_debug_tile(surface, layer, tile, pixel_position)
+
     def draw_debug(self, surface, pixel_position):
         """Draws the level in a simplified manner, without sprites."""
-        start_x, start_y = pixel_position
-
-        for layer in reversed(range(LAYER_COUNT)):
-            for column in range(WIDTH):
-                for row in range(HEIGHT):
-                    x = start_x + column * constants.TILE_WIDTH
-                    y = start_y + row * constants.TILE_HEIGHT
-                    tile = self.tile_at((layer, column, row))
-                    draw_debug_tile(surface, layer, tile, (x, y))
+        for column in range(WIDTH):
+            for row in range(HEIGHT):
+                self.draw_tile_at(surface, (column, row), pixel_position)
 
         self.draw_debug_start_end(surface, pixel_position)
 
