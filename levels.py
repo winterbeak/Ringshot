@@ -17,7 +17,7 @@ HEIGHT = constants.LEVEL_HEIGHT
 PIXEL_WIDTH = WIDTH * constants.TILE_WIDTH
 PIXEL_HEIGHT = HEIGHT * constants.TILE_HEIGHT
 
-LAYER_ID_COUNTS = (8, 5)
+LAYER_ID_COUNTS = (8, 9)
 EMPTY = 1
 BLOCKS_WALL = 2
 
@@ -35,6 +35,10 @@ BUTTONS_LEFT = 2
 BUTTONS_UP = 3
 BUTTONS_RIGHT = 4
 BUTTONS_DOWN = 5
+BUTTONS_TOPLEFT = 6
+BUTTONS_TOPRIGHT = 7
+BUTTONS_BOTTOMRIGHT = 8
+BUTTONS_BOTTOMLEFT = 9
 
 
 LAYER_COUNT = constants.LAYERS
@@ -149,10 +153,15 @@ def string_to_level(string):
     new_level.start_tile = (start_end_values[0], start_end_values[1])
     new_level.end_tile = (start_end_values[2], start_end_values[3])
     new_level.start_shells = shell_values
+    for column in range(WIDTH):
+        for row in range(HEIGHT):
+            if new_level.is_button((column, row)):
+                new_level.total_buttons += 1
+
     return new_level
 
 
-_BUTTON_THICKNESS = 5
+BUTTON_THICKNESS = 5
 
 
 def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
@@ -199,21 +208,56 @@ def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
 
     elif layer_num == LAYER_BUTTONS:
         if tile_id == BUTTONS_LEFT:
-            width = _BUTTON_THICKNESS
+            width = BUTTON_THICKNESS
             height = tile_height
         elif tile_id == BUTTONS_UP:
             width = tile_width
-            height = _BUTTON_THICKNESS
+            height = BUTTON_THICKNESS
         elif tile_id == BUTTONS_RIGHT:
-            x += tile_width - _BUTTON_THICKNESS
-            width = _BUTTON_THICKNESS
+            x += tile_width - BUTTON_THICKNESS
+            width = BUTTON_THICKNESS
             height = tile_height
         elif tile_id == BUTTONS_DOWN:
-            y += tile_height - _BUTTON_THICKNESS
+            y += tile_height - BUTTON_THICKNESS
             width = tile_width
-            height = _BUTTON_THICKNESS
+            height = BUTTON_THICKNESS
         else:
+            # draws diagonal buttons
+            # points start from topmost and travel clockwise
+            width = constants.TILE_WIDTH
+            height = constants.TILE_HEIGHT
+            thickness = BUTTON_THICKNESS - 1
+            points = [(0, 0) for _ in range(4)]
+            if tile_id == BUTTONS_TOPLEFT:
+                points[0] = (width - thickness, thickness)
+                points[1] = (width, thickness * 2)
+                points[2] = (thickness * 2, height)
+                points[3] = (thickness, height - thickness)
+            elif tile_id == BUTTONS_TOPRIGHT:
+                points[0] = (thickness, thickness)
+                points[1] = (width - thickness, height - thickness)
+                points[2] = (width - thickness * 2, height)
+                points[3] = (0, thickness * 2)
+            elif tile_id == BUTTONS_BOTTOMRIGHT:
+                points[0] = (width - thickness * 2, 0)
+                points[1] = (width - thickness, thickness)
+                points[2] = (thickness, height - thickness)
+                points[3] = (0, height - thickness * 2)
+            elif tile_id == BUTTONS_BOTTOMLEFT:
+                points[0] = (thickness * 2, 0)
+                points[1] = (width, height - thickness * 2)
+                points[2] = (width - thickness, height - thickness)
+                points[3] = (thickness, thickness)
+            else:
+                return
+
+            for point in range(4):
+                points[point] = (points[point][0] + x, points[point][1] + y)
+
+            pygame.draw.polygon(surface, constants.RED, points)
+
             return
+
         pygame.draw.rect(surface, constants.RED, (x, y, width, height))
 
 
@@ -339,6 +383,9 @@ class Level:
         self.start_tile = (WIDTH // 2, HEIGHT // 2)
         self.end_tile = (WIDTH // 2 + 5, HEIGHT // 2)
         self.start_shells = [0]  # the shells that the ball starts with
+        self.total_buttons = 0
+        self.pressed_buttons = 0
+        self.pressed_grid = [[False] * HEIGHT for _ in range(WIDTH)]
 
     def to_string(self):
         """Converts the level into a string, for writing to files."""
@@ -376,12 +423,24 @@ class Level:
         """Draws only one layer in the level, simplified, without sprites."""
         start_x, start_y = pixel_position
 
-        for column in range(WIDTH):
-            for row in range(HEIGHT):
-                x = start_x + column * constants.TILE_WIDTH
-                y = start_y + row * constants.TILE_HEIGHT
-                tile = self.tile_at((layer, column, row))
-                draw_debug_tile(surface, layer, tile, (x, y))
+        if layer == LAYER_BLOCKS:
+            for column in range(WIDTH):
+                for row in range(HEIGHT):
+                    if self.tile_at((LAYER_BLOCKS, column, row)) != EMPTY:
+                        x = start_x + column * constants.TILE_WIDTH
+                        y = start_y + row * constants.TILE_HEIGHT
+                        tile = self.tile_at((layer, column, row))
+                        draw_debug_tile(surface, layer, tile, (x, y))
+
+        elif layer == LAYER_BUTTONS:
+            for column in range(WIDTH):
+                for row in range(HEIGHT):
+                    if self.tile_at((LAYER_BUTTONS, column, row)) != EMPTY:
+                        if not self.is_pressed((column, row)):
+                            x = start_x + column * constants.TILE_WIDTH
+                            y = start_y + row * constants.TILE_HEIGHT
+                            tile = self.tile_at((layer, column, row))
+                            draw_debug_tile(surface, layer, tile, (x, y))
 
     def draw_debug_start_end(self, surface, pixel_position):
         """Draws the start and end of the level, simplified, without sprites."""
@@ -439,3 +498,37 @@ class Level:
                 return []
 
             return geometry.points_to_segment_list(points)
+
+    def is_button(self, tile_position):
+        """Returns whether a tile contains a button or not."""
+        tile = self.layers[LAYER_BUTTONS].tile_at(tile_position)
+        if tile == EMPTY:
+            return False
+        return True
+
+    def unpress(self, tile_position):
+        """Unpresses the button at the given position."""
+        tile = self.layers[LAYER_BUTTONS].tile_at(tile_position)
+        if tile == EMPTY:
+            raise Exception("There is no button on tile " + str(tile_position))
+
+        if self.is_pressed(tile_position):
+            self.pressed_grid[tile_position[0]][tile_position[1]] = False
+            self.pressed_buttons -= 1
+
+    def press(self, tile_position):
+        """Presses the button at a given position."""
+        tile = self.layers[LAYER_BUTTONS].tile_at(tile_position)
+        if tile == EMPTY:
+            raise Exception("There is no button on tile " + str(tile_position))
+
+        if not self.is_pressed(tile_position):
+            self.pressed_grid[tile_position[0]][tile_position[1]] = True
+            self.pressed_buttons += 1
+
+    def is_pressed(self, tile_position):
+        """Returns whether a tile is pressed or not.
+
+        If no button exists on the tile, this returns False.
+        """
+        return self.pressed_grid[tile_position[0]][tile_position[1]]

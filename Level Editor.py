@@ -580,6 +580,5 @@ while True:
             editor.switch_to_menu = False
             current_screen = MENU
             main_menu.update_level_buttons()
-            print(editor.level.start_shells)
 
     screen_update()

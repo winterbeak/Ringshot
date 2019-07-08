@@ -40,6 +40,7 @@ class PlayScreen:
         self.block_surface = graphics.new_surface(constants.SCREEN_SIZE)
 
         self.start_position = constants.SCREEN_MIDDLE
+        self.end_open = False
 
     def update(self):
         events.update()
@@ -72,7 +73,13 @@ class PlayScreen:
             if ball_.out_of_bounds():
                 del self.balls[ball_index]
             else:
-                ball_.check_collision(self.level, self.slowmo_factor)
+                if ball_.shell_type != ball.GHOST:
+                    ball_.check_collision(self.level, self.slowmo_factor)
+
+                    if self.level.pressed_buttons == self.level.total_buttons:
+                        if ball_.touching_end:
+                            print("Yay!")
+
                 ball_.update_body(self.slowmo_factor)
 
     def shoot_ball(self, position):
@@ -99,18 +106,24 @@ class PlayScreen:
 
     def draw(self, surface):
         surface.blit(self.block_surface, (0, 0))
+        self.level.draw_debug_layer(surface, levels.LAYER_BUTTONS, (0, 0))
         for ball_ in self.balls:
             ball_.draw_debug(surface)
 
     def reset_level(self):
         self.balls = [copy.deepcopy(self.start_ball)]
         self.player = self.balls[0]
+        columns = levels.WIDTH
+        rows = levels.HEIGHT
+        self.level.pressed_grid = [[False] * rows for _ in range(columns)]
+        self.level.pressed_buttons = 0
 
     def load_level(self, level_num):
         self.level = levels.load_level(level_num)
 
         block_layer = levels.LAYER_BLOCKS
         self.level.draw_debug_layer(self.block_surface, block_layer, (0, 0))
+        self.level.draw_debug_start_end(self.block_surface, (0, 0))
 
         start_tile = self.level.start_tile
         position = levels.middle_pixel(start_tile)
@@ -127,7 +140,6 @@ class PlayScreen:
 
 play_screen = PlayScreen()
 play_screen.load_level(1)
-print(play_screen.player.containing_shells)
 
 while True:
     play_screen.update()

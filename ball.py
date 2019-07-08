@@ -52,6 +52,8 @@ class Ball:
         self.containing_shells = None
         self.shell_type = shell_type
 
+        self.touching_end = False
+
     def draw_debug(self, surface):
         position = (int(self.x), int(self.y))  # pygame circles use integers
 
@@ -145,6 +147,14 @@ class Ball:
             for tile in tiles:
                 if not tile:  # remember, out of bounds tiles return None
                     continue
+
+                if tile == level.end_tile:
+                    self.touching_end = True
+                else:
+                    self.touching_end = False
+
+                if level.is_button(tile):
+                    level.press(tile)
 
                 segments = level.tile_to_segments(tile)
                 if not segments:
