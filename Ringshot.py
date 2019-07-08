@@ -276,7 +276,7 @@ class LevelTransition:
 
 
 play_screen = PlayScreen()
-play_screen.load_level(1)
+play_screen.load_level(0)
 
 transition = LevelTransition()
 

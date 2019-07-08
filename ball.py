@@ -10,7 +10,7 @@ SHELL_TYPES = 2
 CENTER = 0  # the ball at the very center, cannot be shot
 NORMAL = 1  # the normal, 100% tangible shell type
 GHOST = 2  # the paranormal, 0% tangible shell type
-SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.CYAN)
+SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.GREEN)
 
 SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
@@ -77,7 +77,7 @@ class Ball:
         blip_distance = geometry.vector_to_difference(self.angle, self.radius)
         blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
         blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
-        pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 3)
+        pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 2)
 
     def move(self, distance):
         """Instantly moves the ball a certain distance from its
@@ -192,8 +192,8 @@ class Ball:
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
 
     def out_of_bounds(self):
-        if -100 <= self.x < constants.SCREEN_WIDTH + 100:
-            if -100 <= self.y < constants.SCREEN_HEIGHT + 100:
+        if -200 <= self.x < constants.SCREEN_WIDTH + 200:
+            if -200 <= self.y < constants.SCREEN_HEIGHT + 200:
                 return False
         return True
 
