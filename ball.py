@@ -54,8 +54,10 @@ class Ball:
 
         self.touching_end = False
 
-    def draw_debug(self, surface):
-        position = (int(self.x), int(self.y))  # pygame circles use integers
+    def draw_debug(self, surface, screen_top_left=(0, 0)):
+        x = int(self.x)  # pygame circles use integers
+        y = int(self.y)
+        position = (x + screen_top_left[0], y + screen_top_left[1])
 
         if self.is_player:
             radius = self.radius
@@ -73,8 +75,8 @@ class Ball:
 
         # draws a little pixel representing the ball's rotation
         blip_distance = geometry.vector_to_difference(self.angle, self.radius)
-        blip_x = int(self.x + blip_distance[0])
-        blip_y = int(self.y + blip_distance[1])
+        blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
+        blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
         pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 3)
 
     def move(self, distance):
@@ -132,6 +134,8 @@ class Ball:
         """Updates the player's position and velocity based on where they
         are going in the level.
         """
+        self.touching_end = False
+
         full_step = self.next_position(slowmo_factor)
         for step in range(1, self.CHECK_STEPS + 1):
             multiplier = step / self.CHECK_STEPS
@@ -150,8 +154,6 @@ class Ball:
 
                 if tile == level.end_tile:
                     self.touching_end = True
-                else:
-                    self.touching_end = False
 
                 if level.is_button(tile):
                     level.press(tile)

@@ -341,6 +341,7 @@ class Editor:
                 else:
                     self.shell_right(shell_num)
 
+            print(self.selected_tile)
             if self.selected_single_place():
                 if self.selected_tile == levels.BLOCKS_START:
                     self.change_start()
@@ -373,21 +374,27 @@ class Editor:
         return False
 
     def change_start(self):
+        mouse_tile = levels.grid_tile_position(events.mouse.position)
+        if not mouse_tile:
+            return
+
         old_start = self.level.start_tile
         rect = levels.tile_rect(levels.tile_pixel_position(old_start))
         pygame.draw.rect(self.level_surface, constants.TRANSPARENT, rect)
 
-        mouse_tile = levels.grid_tile_position(events.mouse.position)
         self.level.start_tile = mouse_tile
         rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
         pygame.draw.rect(self.level_surface, levels.DEBUG_START_COLOR, rect)
 
     def change_end(self):
+        mouse_tile = levels.grid_tile_position(events.mouse.position)
+        if not mouse_tile:
+            return
+
         old_end = self.level.end_tile
         rect = levels.tile_rect(levels.tile_pixel_position(old_end))
         pygame.draw.rect(self.level_surface, constants.TRANSPARENT, rect)
 
-        mouse_tile = levels.grid_tile_position(events.mouse.position)
         self.level.end_tile = mouse_tile
         rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
         pygame.draw.rect(self.level_surface, levels.DEBUG_END_COLOR, rect)

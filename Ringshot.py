@@ -1,5 +1,6 @@
 import pygame
 import copy
+import os
 
 import constants
 import events
@@ -16,8 +17,19 @@ def screen_update(fps):
     clock.tick(fps)
 
 
+os.environ["SDL_VIDEO_CENTERED"] = "1"
+
+# leave some pixels as a border, so it's less likely to click off the window
+FULL_WIDTH = constants.FULL_WIDTH
+FULL_HEIGHT = constants.FULL_HEIGHT
+FULL_SIZE = constants.FULL_SIZE
+
+SCREEN_LEFT = constants.SCREEN_LEFT
+SCREEN_TOP = constants.SCREEN_TOP
+TOP_LEFT = constants.SCREEN_TOP_LEFT
+
 pygame.init()
-final_display = pygame.display.set_mode(constants.SCREEN_SIZE)
+final_display = pygame.display.set_mode(FULL_SIZE)
 clock = pygame.time.Clock()
 
 mouse_held = False
@@ -35,6 +47,7 @@ class PlayScreen:
         self.balls = []
         self.player = None
         self.start_ball = None
+        self.level_num = 0
 
         # make sure you DONT DRAW THE BUTTONS on block_surface
         self.block_surface = graphics.new_surface(constants.SCREEN_SIZE)
@@ -46,6 +59,9 @@ class PlayScreen:
         events.update()
 
         mouse = events.mouse
+        new_x = mouse.position[0] - SCREEN_LEFT
+        new_y = mouse.position[1] - SCREEN_TOP
+        mouse.position = (new_x, new_y)
         keys = events.keys
 
         if mouse.held and self.player.containing_shells:
@@ -76,9 +92,9 @@ class PlayScreen:
                 if ball_.shell_type != ball.GHOST:
                     ball_.check_collision(self.level, self.slowmo_factor)
 
-                    if self.level.pressed_buttons == self.level.total_buttons:
-                        if ball_.touching_end:
-                            print("Yay!")
+                if self.level.pressed_buttons == self.level.total_buttons:
+                    if ball_.touching_end:
+                        self.load_level(self.level_num + 1)
 
                 ball_.update_body(self.slowmo_factor)
 
@@ -105,10 +121,11 @@ class PlayScreen:
         old_ball.y_velocity = -self.player.y_velocity
 
     def draw(self, surface):
-        surface.blit(self.block_surface, (0, 0))
-        self.level.draw_debug_layer(surface, levels.LAYER_BUTTONS, (0, 0))
+        surface.blit(self.block_surface, TOP_LEFT)
+        self.level.draw_debug_layer(surface, levels.LAYER_BUTTONS, TOP_LEFT)
+
         for ball_ in self.balls:
-            ball_.draw_debug(surface)
+            ball_.draw_debug(surface, TOP_LEFT)
 
     def reset_level(self):
         self.balls = [copy.deepcopy(self.start_ball)]
@@ -119,6 +136,10 @@ class PlayScreen:
         self.level.pressed_buttons = 0
 
     def load_level(self, level_num):
+        self.block_surface.fill(constants.TRANSPARENT)
+        self.slowmo_factor = 1.0
+
+        self.level_num = level_num
         self.level = levels.load_level(level_num)
 
         block_layer = levels.LAYER_BLOCKS
