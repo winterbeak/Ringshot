@@ -5,7 +5,8 @@ import os
 import constants
 import events
 import graphics
-import debug
+import random
+# import debug
 
 import ball
 import levels
@@ -55,9 +56,10 @@ class PlayScreen:
         self.start_position = constants.SCREEN_MIDDLE
         self.end_open = False
 
-    def update(self):
-        events.update()
+        self.transition = False
+        self.end_ball = None
 
+    def update(self):
         mouse = events.mouse
         new_x = mouse.position[0] - SCREEN_LEFT
         new_y = mouse.position[1] - SCREEN_TOP
@@ -94,7 +96,8 @@ class PlayScreen:
 
                 if self.level.pressed_buttons == self.level.total_buttons:
                     if ball_.touching_end:
-                        self.load_level(self.level_num + 1)
+                        self.transition = True
+                        self.end_ball = ball_
 
                 ball_.update_body(self.slowmo_factor)
 
@@ -159,17 +162,158 @@ class PlayScreen:
         self.reset_level()
 
 
+class LevelTransition:
+    PAUSE_LENGTH = 30
+    OUT_LENGTH = 60
+    IN_LENGTH = 60
+
+    PAUSE_LAST = PAUSE_LENGTH
+    OUT_LAST = PAUSE_LAST + OUT_LENGTH
+    IN_LAST = OUT_LAST + IN_LENGTH
+
+    LAST_RADIUS = 700
+    LAST_WIDTH = 150
+
+    def __init__(self):
+        self.previous_surface = graphics.new_surface(constants.FULL_SIZE)
+        self.new_surface = graphics.new_surface(constants.FULL_SIZE)
+
+        self.from_point = (0.0, 0.0)
+        self.to_point = (0.0, 0.0)
+        self.center = (0.0, 0.0)
+
+        self.x_change = 0.0
+        self.y_change = 0.0
+
+        # finds the value a in y = a(x - r)(x - s) form
+        # x and y are based off of the vertex, at maximum radius/width
+        denominator = (self.OUT_LAST - self.PAUSE_LAST)
+        denominator *= (self.OUT_LAST - self.IN_LAST)
+
+        self.radius_a = self.LAST_RADIUS / denominator
+        self.width_a = self.LAST_WIDTH / denominator
+
+        self.frame = 0
+        self.radius = 0.0
+        self.width = 0.0
+
+        self.transparency_temp = graphics.new_surface(FULL_SIZE)
+
+        self.end_ball = None
+        self.color = constants.WHITE
+
+    def update(self):
+        if self.frame <= self.PAUSE_LAST:
+            pass
+        elif self.frame <= self.IN_LAST:
+            center_x = self.center[0] + self.x_change
+            center_y = self.center[1] + self.y_change
+            self.center = (center_x, center_y)
+
+            # equation is the (x - r)(x - s) part.
+            equation = self.frame - self.PAUSE_LAST
+            equation *= self.frame - self.IN_LAST
+            self.radius = self.radius_a * equation
+            self.width = self.width_a * equation
+
+        self.frame += 1
+
+    def draw(self, surface):
+        if self.frame <= self.PAUSE_LAST:
+            surface.blit(self.previous_surface, (0, 0))
+
+        elif self.frame <= self.OUT_LAST:
+            shake_position = (random.randint(-3, 3), random.randint(-3, 3))
+            surface.blit(self.previous_surface, shake_position)
+
+            center = (int(self.center[0]), int(self.center[1]))
+            radius = int(self.radius)
+            width = int(self.width)
+            pygame.draw.circle(surface, self.color, center, radius, width)
+
+        elif self.frame <= self.IN_LAST:
+            shake_position = (random.randint(-3, 3), random.randint(-3, 3))
+            surface.blit(self.previous_surface, shake_position)
+
+            center = (int(self.center[0]), int(self.center[1]))
+            radius = int(self.radius)
+            width = int(self.width)
+
+            self.transparency_temp.fill(constants.BLACK)
+            self.transparency_temp.blit(self.new_surface, (0, 0))
+            color = constants.TRANSPARENT
+            pygame.draw.circle(self.transparency_temp, color, center, radius)
+
+            surface.blit(self.transparency_temp, shake_position)
+
+            pygame.draw.circle(surface, self.color, center, radius, width)
+
+    def set_from_point(self, position):
+        self.from_point = (position[0] + SCREEN_LEFT, position[1] + SCREEN_TOP)
+
+    def set_to_point(self, position):
+        self.to_point = (position[0] + SCREEN_LEFT, position[1] + SCREEN_TOP)
+
+    def init_animation(self):
+        """
+        Initializes the circle transition.
+
+        from_point is the first point.
+        to_point is the
+        Rearranging a quadratic in vertex form:
+        (y - c) / ((x - d) ** 2) = a
+        y is the first value
+        c is the final value
+        x is the first frame (0)
+        d is the last frame
+        """
+        length = (self.OUT_LENGTH + self.IN_LENGTH)
+        self.x_change = (self.to_point[0] - self.from_point[0]) / length
+        self.y_change = (self.to_point[1] - self.from_point[1]) / length
+        self.center = self.from_point
+
+        self.color = ball.SHELL_DEBUG_COLORS[self.end_ball.shell_type]
+
+
 play_screen = PlayScreen()
 play_screen.load_level(1)
 
-while True:
-    play_screen.update()
-    play_screen.draw(final_display)
+transition = LevelTransition()
 
-    debug.debug(final_display, 0, clock.get_fps())
-    debug.debug(final_display, 1, play_screen.player.x_velocity, play_screen.player.y_velocity)
-    debug.debug(final_display, 2, play_screen.player.angle)
-    debug.debug(final_display, 3, play_screen.balls)
-    debug.debug(final_display, 4, play_screen.player.y)
+PLAY = 0
+TRANSITION = 1
+current_screen = PLAY
+
+while True:
+    events.update()
+
+    if current_screen == PLAY:
+        play_screen.update()
+        play_screen.draw(final_display)
+
+        if play_screen.transition:
+            play_screen.transition = False
+            transition.frame = 0
+
+            transition.previous_surface.fill(constants.TRANSPARENT)
+            transition.previous_surface.blit(final_display, (0, 0))
+            transition.end_ball = play_screen.end_ball
+
+            transition.new_surface.fill(constants.TRANSPARENT)
+            play_screen.load_level(play_screen.level_num + 1)
+            play_screen.draw(transition.new_surface)
+
+            transition.set_from_point(transition.end_ball.position)
+            transition.set_to_point(play_screen.player.position)
+            transition.init_animation()
+
+            current_screen = TRANSITION
+
+    elif current_screen == TRANSITION:
+        transition.update()
+        transition.draw(final_display)
+
+        if transition.frame == transition.IN_LAST:
+            current_screen = PLAY
 
     screen_update(60)

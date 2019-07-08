@@ -175,12 +175,6 @@ class Ball:
 
                 self.update_angular_velocity(perpendicular)
 
-                # print(shortest_segment.point1, shortest_segment.point2)
-                # print(self.x_velocity, self.y_velocity)
-                # print(reflected)
-                # print(shortest_segment.slope)
-                # print()
-
                 # velocity stuff
                 # y is negative since up is negative and down is positive!
                 # pygame sure is weird.
