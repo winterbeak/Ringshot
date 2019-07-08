@@ -44,6 +44,7 @@ class Button:
         self.hidden = False
 
         self.highlight = False
+        self.selected = False
 
     def touches_point(self, point):
         if self.rect.collidepoint(point[0], point[1]):
@@ -51,6 +52,9 @@ class Button:
         return False
 
     def draw(self, surface):
+        if self.selected:
+            self.highlight = True
+
         if not self.hidden:
             if self.highlight:
                 pygame.draw.rect(surface, self.HIGHLIGHT_COLOR, self.rect)
@@ -75,7 +79,7 @@ class ButtonSet:
                 touching_a_button = True
                 self.touch_mouse = button_id
                 button.highlight = True
-            else:
+            elif not button.selected:
                 button.highlight = False
 
         if not touching_a_button:
@@ -98,6 +102,12 @@ class ButtonSet:
 
     def hide(self, button_id):
         self.buttons[button_id].hidden = True
+
+    def select(self, button_id):
+        self.buttons[button_id].selected = True
+
+    def deselect(self, button_id):
+        self.buttons[button_id].selected = False
 
 
 def small_button(position):
@@ -123,22 +133,28 @@ def level_button(position, thumbnail_level, level_num):
 
 class MainMenu:
     def __init__(self):
-        self.SPECIAL_BUTTONS = 3
+        self.SPECIAL_BUTTONS = 5
         self.ADD = 0
-        self.UP = 1
-        self.DOWN = 2
-        self.FIRST_LEVEL = 3
+        self.LEVEL_UP = 1
+        self.LEVEL_DOWN = 2
+        self.UP = 3
+        self.DOWN = 4
+        self.FIRST_LEVEL = 5
         self.LEVELS_PER_PAGE = 8
         self.LEVEL_BUTTON_SPACING = 60
 
         buttons = ButtonSet()
         buttons.add(small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT//2 - 10)))
+        buttons.add(small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT // 2 + 55)))
+        buttons.add(small_button((SCREEN_WIDTH - 40, SCREEN_HEIGHT // 2 + 85)))
         buttons.add(small_button((SCREEN_WIDTH // 2 - 10, 20)))
         buttons.add(small_button((SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT - 40)))
         self.buttons = buttons
 
         self.page = 0
         self.last_page = (levels.count_levels() - 1) // self.LEVELS_PER_PAGE
+
+        self.selected_level_button = -1
 
         self.level_clicked = -1
         self.switch_to_editor = False
@@ -163,10 +179,20 @@ class MainMenu:
                 else:
                     self.change_page(0)
 
+            elif self.buttons.touch_mouse == self.LEVEL_UP:
+                self.move_up_selected()
+
+            elif self.buttons.touch_mouse == self.LEVEL_DOWN:
+                self.move_down_selected()
+
             elif self.buttons.touch_mouse >= self.FIRST_LEVEL:
-                self.switch_to_editor = True
-                self.level_clicked = self.buttons.touch_mouse
-                return
+                if self.buttons.touch_mouse == self.selected_level_button:
+                    self.switch_to_editor = True
+                    return
+                else:
+                    self.buttons.deselect(self.selected_level_button)
+                    self.selected_level_button = self.buttons.touch_mouse
+                    self.buttons.select(self.selected_level_button)
 
         self.buttons.draw(final_display)
 
@@ -218,6 +244,31 @@ class MainMenu:
 
                 y %= self.LEVEL_BUTTON_SPACING * self.LEVELS_PER_PAGE
                 y += self.LEVEL_BUTTON_SPACING
+
+    def selected_level(self):
+        return self.selected_level_button - self.SPECIAL_BUTTONS
+
+    def move_down_selected(self):
+        """Moves a level down a level."""
+        if self.selected_level_button != -1:
+            level_num = self.selected_level()
+            if level_num != levels.count_levels() - 1:
+                levels.swap_levels(level_num, level_num + 1)
+
+                self.selected_level_button += 1
+                self.update_level_buttons()
+                self.buttons.select(self.selected_level_button)
+
+    def move_up_selected(self):
+        """Moves a level up a level."""
+        if self.selected_level_button != -1:
+            level_num = self.selected_level()
+            if level_num != 0:
+                levels.swap_levels(level_num, level_num - 1)
+
+                self.selected_level_button -= 1
+                self.update_level_buttons()
+                self.buttons.select(self.selected_level_button)
 
 
 def draw_tile(surface, layer_num, tile_id, pixel_position):
@@ -341,7 +392,6 @@ class Editor:
                 else:
                     self.shell_right(shell_num)
 
-            print(self.selected_tile)
             if self.selected_single_place():
                 if self.selected_tile == levels.BLOCKS_START:
                     self.change_start()
@@ -572,8 +622,11 @@ while True:
         if main_menu.switch_to_editor:
             main_menu.switch_to_editor = False
             current_screen = EDITOR
-            editor.load_level(main_menu.level_clicked - 3)
+
+            editor.load_level(main_menu.selected_level())
             editor.init_editor_ui()
+
+            main_menu.selected_level_button = -1
 
     elif current_screen == EDITOR:
         editor.update()

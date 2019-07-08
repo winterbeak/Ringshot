@@ -109,6 +109,30 @@ def count_levels():
     return file_string.count(LEVEL_SEPARATOR) + 1
 
 
+def swap_levels(level_num1, level_num2):
+    """Swaps the position of two levels."""
+    if level_num1 < 0 or level_num2 < 0:
+        raise Exception("Attempted to swap level below 0!")
+
+    file = open("levels.txt", 'r')
+    level_array = file.read().split(LEVEL_SEPARATOR)
+    file.close()
+
+    level_count = len(level_array)
+    if level_num1 >= level_count or level_num2 >= level_count:
+        raise Exception("Attempted to swap level past last level!")
+
+    temp = level_array[level_num1]
+    level_array[level_num1] = level_array[level_num2]
+    level_array[level_num2] = temp
+
+    string = LEVEL_SEPARATOR.join(level_array)
+
+    file = open("levels.txt", 'w')
+    file.write(string)
+    file.close()
+
+
 def out_of_bounds(tile_position):
     """Returns whether a (column, row) pair is a valid coordinate inside
     the level.
