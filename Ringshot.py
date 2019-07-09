@@ -38,6 +38,11 @@ mouse_click = False
 mouse_release = False
 
 
+class MenuScreen:
+    def __init__(self):
+        self.switch_to_level = False
+
+
 class PlayScreen:
     SLOWMO_MAX = 8.0  # the largest factor of slowmo possible
     SPEEDUP_FACTOR = 0.05  # how much the slowmo effect "wears off" each frame
@@ -276,7 +281,7 @@ class LevelTransition:
 
 
 play_screen = PlayScreen()
-play_screen.load_level(0)
+play_screen.load_level(15)
 
 transition = LevelTransition()
 
