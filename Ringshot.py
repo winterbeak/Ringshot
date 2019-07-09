@@ -6,7 +6,7 @@ import constants
 import events
 import graphics
 import random
-# import debug
+import debug
 
 import ball
 import levels
@@ -281,7 +281,7 @@ class LevelTransition:
 
 
 play_screen = PlayScreen()
-play_screen.load_level(15)
+play_screen.load_level(0)
 
 transition = LevelTransition()
 
@@ -320,5 +320,7 @@ while True:
 
         if transition.frame == transition.IN_LAST:
             current_screen = PLAY
+
+    debug.debug(final_display, 1, clock.get_fps())
 
     screen_update(60)

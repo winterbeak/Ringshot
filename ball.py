@@ -187,8 +187,10 @@ class Ball:
 
         # self.update_grounded(level)
         if abs(self.y_velocity) < self.GROUNDED_THRESHOLD:
+            self.x_bounce_decay = 0.95
             self.y_bounce_decay = self.y_velocity / 2
         else:
+            self.x_bounce_decay = self.NORMAL_BOUNCE_DECAY
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
 
     def out_of_bounds(self):

@@ -328,7 +328,7 @@ def middle_pixel(tile_position):
     return x, y
 
 
-_BALL_CHECKS = 8
+BALL_CHECKS = 16
 
 
 def tiles_touching_ball(radius, ball_center):
@@ -340,8 +340,8 @@ def tiles_touching_ball(radius, ball_center):
     tile_list = []
 
     center_x, center_y = ball_center
-    for point_num in range(_BALL_CHECKS):
-        angle = math.pi * 2.0 * (point_num / _BALL_CHECKS)
+    for point_num in range(BALL_CHECKS):
+        angle = math.pi * 2.0 * (point_num / BALL_CHECKS)
         delta_x, delta_y = geometry.vector_to_difference(angle, radius - 1)
 
         point = (center_x + delta_x, center_y + delta_y)
