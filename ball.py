@@ -22,6 +22,8 @@ bounce_notes = ["d2", "e2", "f#2", "g2", "a3", "b3", "c#3", "e3"]
 sound_bounce = sound.load_strings("bounce%s", bounce_notes)
 sound_bounce.set_sound_limit(4, 15)
 
+sound_button = sound.load_numbers("button%i", 3)
+
 end_note = sound.load("bounced3")
 
 
@@ -175,8 +177,9 @@ class Ball:
                 if tile == level.end_tile:
                     self.touching_end = True
 
-                if level.is_button(tile):
+                if level.is_button(tile) and not level.is_pressed(tile):
                     level.press(tile)
+                    sound_button.play_random()
 
                 segments = level.tile_to_segments(tile)
                 if not segments:
@@ -194,7 +197,7 @@ class Ball:
                 reflected = geometry.reflect_vector(perpendicular, velocity)
 
                 self.update_angular_velocity(perpendicular)
-                self.play_bounce_sound(shortest_segment.slope)
+                self.play_bounce_sound()
 
                 # velocity stuff
                 # y is negative since up is negative and down is positive!
@@ -220,12 +223,10 @@ class Ball:
                 return False
         return True
 
-    def play_bounce_sound(self, contact_slope):
+    def play_bounce_sound(self):
         velocity = (self.x_velocity, self.y_velocity)
 
-        direction = math.atan(contact_slope)
-        vector = geometry.difference_to_vector(velocity)
-        magnitude = abs(geometry.component_in_direction(vector, direction))
+        magnitude = geometry.magnitude(velocity)
 
         if magnitude > 2.0:
             volume = (magnitude - 2.0) / 10.0

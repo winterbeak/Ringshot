@@ -47,6 +47,7 @@ LAYER_BUTTONS = constants.LAYER_BUTTONS
 
 DEBUG_START_COLOR = constants.YELLOW
 DEBUG_END_COLOR = constants.MAGENTA
+DEBUG_END_LOCKED_COLOR = constants.LOCK_COLOR
 
 
 # these are the characters that split up the different parts of levels.txt.
@@ -489,7 +490,11 @@ class Level:
         x, y = tile_pixel_position(self.end_tile)
         x += pixel_position[0]
         y += pixel_position[1]
-        pygame.draw.rect(surface, DEBUG_END_COLOR, tile_rect((x, y)))
+        if self.pressed_buttons < self.total_buttons:
+            color = DEBUG_END_LOCKED_COLOR
+        else:
+            color = DEBUG_END_COLOR
+        pygame.draw.rect(surface, color, tile_rect((x, y)))
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at a certain position.

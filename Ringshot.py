@@ -39,8 +39,7 @@ mouse_held = False
 mouse_click = False
 mouse_release = False
 
-sound_touch_end = sound.load("touch_end")
-sound_touch_end.set_volume(0.5)
+sound_transition = sound.load("transition")
 
 
 class MenuScreen:
@@ -68,6 +67,8 @@ class PlayScreen:
 
         self.transition = False
         self.end_ball = None
+
+        self.unlocked = True
 
     def update(self):
         mouse = events.mouse
@@ -111,6 +112,11 @@ class PlayScreen:
 
                 ball_.update_body(self.slowmo_factor)
 
+        if not self.unlocked:
+            if self.level.pressed_buttons == self.level.total_buttons:
+                self.unlocked = True
+                self.level.draw_debug_start_end(self.block_surface, (0, 0))
+
     def shoot_ball(self, position):
         """Shoots a ball towards a specified position."""
         old_ball = self.player
@@ -147,6 +153,8 @@ class PlayScreen:
         rows = levels.HEIGHT
         self.level.pressed_grid = [[False] * rows for _ in range(columns)]
         self.level.pressed_buttons = 0
+        self.unlocked = False
+        self.level.draw_debug_start_end(self.block_surface, (0, 0))
 
     def load_level(self, level_num):
         self.block_surface.fill(constants.TRANSPARENT)
@@ -218,7 +226,9 @@ class LevelTransition:
         self.done = False
 
         self.sound_grow_shell = sound.load_numbers("grow_shell%i", 10)
-        self.sound_grow_shell.set_volumes(0.5)
+        self.sound_grow_shell.set_volumes(0.4)
+
+        self.sound_whoosh = sound.load("transition")
 
     def update(self):
         if self.frame <= self.PAUSE_LAST:
@@ -242,6 +252,9 @@ class LevelTransition:
                     self.done = True
                 else:
                     self.sound_grow_shell.play(self.shell_count - 2)
+
+        if self.frame == self.PAUSE_LAST:
+            self.sound_whoosh.play()
 
         self.frame += 1
 
@@ -309,7 +322,7 @@ class LevelTransition:
 
 
 play_screen = PlayScreen()
-play_screen.load_level(0)
+play_screen.load_level(10)
 
 transition = LevelTransition()
 
