@@ -54,20 +54,31 @@ class Ball:
 
         self.touching_end = False
 
-    def draw_debug(self, surface, screen_top_left=(0, 0)):
+    def draw_debug(self, surface, screen_top_left=(0, 0), shells=0):
         x = int(self.x)  # pygame circles use integers
         y = int(self.y)
         position = (x + screen_top_left[0], y + screen_top_left[1])
 
         if self.is_player:
-            radius = self.radius
-            color = SHELL_DEBUG_COLORS[self.shell_type]
-            pygame.draw.circle(surface, color, position, radius)
-
-            for shell in self.containing_shells:
-                radius -= SHELL_WIDTH
-                color = SHELL_DEBUG_COLORS[shell]
+            if shells == 0 or shells > len(self.containing_shells):
+                radius = self.radius
+                color = SHELL_DEBUG_COLORS[self.shell_type]
                 pygame.draw.circle(surface, color, position, radius)
+
+                for shell in self.containing_shells:
+                    radius -= SHELL_WIDTH
+                    color = SHELL_DEBUG_COLORS[shell]
+                    pygame.draw.circle(surface, color, position, radius)
+            else:
+                first_shell = len(self.containing_shells) - shells
+
+                radius = self.radius
+                radius -= first_shell * SHELL_WIDTH
+
+                for shell in self.containing_shells[first_shell:]:
+                    radius -= SHELL_WIDTH
+                    color = SHELL_DEBUG_COLORS[shell]
+                    pygame.draw.circle(surface, color, position, radius)
 
         else:
             color = SHELL_DEBUG_COLORS[self.shell_type]

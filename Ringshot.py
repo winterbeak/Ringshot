@@ -171,6 +171,7 @@ class LevelTransition:
     PAUSE_LENGTH = 30
     OUT_LENGTH = 60
     IN_LENGTH = 60
+    SHELL_LENGTH = 13
 
     PAUSE_LAST = PAUSE_LENGTH
     OUT_LAST = PAUSE_LAST + OUT_LENGTH
@@ -205,7 +206,11 @@ class LevelTransition:
         self.transparency_temp = graphics.new_surface(FULL_SIZE)
 
         self.end_ball = None
+        self.new_ball = None
+        self.shell_count = 0
         self.color = constants.WHITE
+
+        self.done = False
 
     def update(self):
         if self.frame <= self.PAUSE_LAST:
@@ -220,6 +225,13 @@ class LevelTransition:
             equation *= self.frame - self.IN_LAST
             self.radius = self.radius_a * equation
             self.width = self.width_a * equation
+
+        else:
+            self.shell_count = (self.frame - self.IN_LAST) // self.SHELL_LENGTH
+            self.shell_count += 1
+
+            if self.shell_count > len(self.new_ball.containing_shells) + 1:
+                self.done = True
 
         self.frame += 1
 
@@ -252,6 +264,10 @@ class LevelTransition:
             surface.blit(self.transparency_temp, shake_position)
 
             pygame.draw.circle(surface, self.color, center, radius, width)
+
+        else:
+            surface.blit(self.new_surface, (0, 0))
+            self.new_ball.draw_debug(surface, TOP_LEFT, self.shell_count)
 
     def set_from_point(self, position):
         self.from_point = (position[0] + SCREEN_LEFT, position[1] + SCREEN_TOP)
@@ -306,7 +322,8 @@ while True:
 
             transition.new_surface.fill(constants.TRANSPARENT)
             play_screen.load_level(play_screen.level_num + 1)
-            play_screen.draw(transition.new_surface)
+            play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
+            transition.new_ball = play_screen.player
 
             transition.set_from_point(transition.end_ball.position)
             transition.set_to_point(play_screen.player.position)
@@ -318,7 +335,8 @@ while True:
         transition.update()
         transition.draw(final_display)
 
-        if transition.frame == transition.IN_LAST:
+        if transition.done:
+            transition.done = False
             current_screen = PLAY
 
     debug.debug(final_display, 1, clock.get_fps())
