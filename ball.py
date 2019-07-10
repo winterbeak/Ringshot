@@ -1,3 +1,5 @@
+import sound
+
 import pygame
 import math
 
@@ -14,6 +16,13 @@ SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.GREEN)
 
 SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
+
+
+bounce_notes = ["d2", "e2", "f#2", "g2", "a3", "b3", "c#3", "e3"]
+sound_bounce = sound.load_strings("bounce%s", bounce_notes)
+sound_bounce.set_sound_limit(4, 15)
+
+end_note = sound.load("bounced3")
 
 
 def first_ball_radius(level):
@@ -185,6 +194,7 @@ class Ball:
                 reflected = geometry.reflect_vector(perpendicular, velocity)
 
                 self.update_angular_velocity(perpendicular)
+                self.play_bounce_sound(shortest_segment.slope)
 
                 # velocity stuff
                 # y is negative since up is negative and down is positive!
@@ -209,6 +219,22 @@ class Ball:
             if -200 <= self.y < constants.SCREEN_HEIGHT + 200:
                 return False
         return True
+
+    def play_bounce_sound(self, contact_slope):
+        velocity = (self.x_velocity, self.y_velocity)
+
+        direction = math.atan(contact_slope)
+        vector = geometry.difference_to_vector(velocity)
+        magnitude = abs(geometry.component_in_direction(vector, direction))
+
+        if magnitude > 2.0:
+            volume = (magnitude - 2.0) / 10.0
+            # forces sound to be played if you are the player, since the player
+            # is likely more focused on that specific ball
+            if self.is_player:
+                sound_bounce.play_random(volume, True)
+            else:
+                sound_bounce.play_random(volume)
 
     def update_angular_velocity(self, contact_slope):
         """Updates the angular velocity of the ball (how fast it spins).

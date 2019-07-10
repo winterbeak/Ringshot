@@ -1,6 +1,11 @@
 import math
 
 
+def magnitude(components):
+    """Returns the magnitude of a vector given the x and y components."""
+    return math.sqrt(components[0] ** 2 + components[1] ** 2)
+
+
 def angle_between(from_position, to_position):
     delta_x = to_position[0] - from_position[0]
     delta_y = to_position[1] - from_position[1]
@@ -46,6 +51,8 @@ def difference_to_vector(difference):
 def component_in_direction(vector, direction):
     """Returns the magnitude of the component of a vector that points in
     the given direction.
+    NOTE: sometimes is negative, which I take advantage of when
+    calculating angular velocity
 
     vector is an (angle, magnitude) pair.
     """

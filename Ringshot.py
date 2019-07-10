@@ -1,3 +1,5 @@
+import sound
+
 import pygame
 import copy
 import os
@@ -36,6 +38,9 @@ clock = pygame.time.Clock()
 mouse_held = False
 mouse_click = False
 mouse_release = False
+
+sound_touch_end = sound.load("touch_end")
+sound_touch_end.set_volume(0.5)
 
 
 class MenuScreen:
@@ -212,6 +217,9 @@ class LevelTransition:
 
         self.done = False
 
+        self.sound_grow_shell = sound.load_numbers("grow_shell%i", 10)
+        self.sound_grow_shell.set_volumes(0.5)
+
     def update(self):
         if self.frame <= self.PAUSE_LAST:
             pass
@@ -227,11 +235,13 @@ class LevelTransition:
             self.width = self.width_a * equation
 
         else:
-            self.shell_count = (self.frame - self.IN_LAST) // self.SHELL_LENGTH
-            self.shell_count += 1
+            if (self.frame - self.IN_LAST) % self.SHELL_LENGTH == 0:
+                self.shell_count += 1
 
-            if self.shell_count > len(self.new_ball.containing_shells) + 1:
-                self.done = True
+                if self.shell_count > len(self.new_ball.containing_shells) + 1:
+                    self.done = True
+                else:
+                    self.sound_grow_shell.play(self.shell_count - 2)
 
         self.frame += 1
 
@@ -295,6 +305,8 @@ class LevelTransition:
 
         self.color = ball.SHELL_DEBUG_COLORS[self.end_ball.shell_type]
 
+        self.shell_count = 1
+
 
 play_screen = PlayScreen()
 play_screen.load_level(0)
@@ -307,6 +319,7 @@ current_screen = PLAY
 
 while True:
     events.update()
+    sound.update()
 
     if current_screen == PLAY:
         play_screen.update()
@@ -330,6 +343,8 @@ while True:
             transition.init_animation()
 
             current_screen = TRANSITION
+
+            sound.play(ball.end_note, 0.5)
 
     elif current_screen == TRANSITION:
         transition.update()
