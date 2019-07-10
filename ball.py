@@ -167,7 +167,14 @@ class Ball:
 
             next_position = (self.x + delta_x, self.y + delta_y)
 
-            tiles = levels.tiles_touching_ball(self.radius, next_position)
+            radius = self.radius
+            if self.shell_type == GHOST and self.is_player:
+                for shell in self.containing_shells:
+                    if shell != GHOST:
+                        break
+                    radius -= SHELL_WIDTH
+
+            tiles = levels.tiles_touching_ball(radius, next_position)
             shortest_segment = None
             shortest = 1000000.0
             for tile in tiles:
@@ -181,6 +188,9 @@ class Ball:
                     level.press(tile)
                     sound_button.play_random()
 
+                if self.shell_type == GHOST and not self.is_player:
+                    continue
+
                 segments = level.tile_to_segments(tile)
                 if not segments:
                     continue
@@ -191,7 +201,7 @@ class Ball:
                         shortest_segment = new_segment
                         shortest = new_segment.length
 
-            if shortest_segment and shortest < self.radius:
+            if shortest_segment and shortest < radius:
                 velocity = (self.x_velocity, self.y_velocity)
                 perpendicular = geometry.inverse(shortest_segment.slope)
                 reflected = geometry.reflect_vector(perpendicular, velocity)

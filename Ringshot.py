@@ -102,8 +102,7 @@ class PlayScreen:
             if ball_.out_of_bounds():
                 del self.balls[ball_index]
             else:
-                if ball_.shell_type != ball.GHOST:
-                    ball_.check_collision(self.level, self.slowmo_factor)
+                ball_.check_collision(self.level, self.slowmo_factor)
 
                 if self.level.pressed_buttons == self.level.total_buttons:
                     if ball_.touching_end:
@@ -322,7 +321,7 @@ class LevelTransition:
 
 
 play_screen = PlayScreen()
-play_screen.load_level(10)
+play_screen.load_level(20)
 
 transition = LevelTransition()
 
