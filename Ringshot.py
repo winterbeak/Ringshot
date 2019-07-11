@@ -3,12 +3,13 @@ import sound
 import pygame
 import copy
 import os
+import sys
 
 import constants
 import events
 import graphics
 import random
-import debug
+# import debug
 
 import ball
 import levels
@@ -40,6 +41,8 @@ mouse_click = False
 mouse_release = False
 
 sound_transition = sound.load("transition")
+
+LAST_LEVEL = levels.count_levels() - 1
 
 
 class MenuScreen:
@@ -94,7 +97,10 @@ class PlayScreen:
             self.slowmo_factor = 1.0
 
         if keys.pressed_key == pygame.K_r:
-            self.reset_level()
+            if mouse.held:
+                self.reset_level(True)
+            else:
+                self.reset_level(False)
 
         ball_index = len(self.balls)
         for ball_ in reversed(self.balls):
@@ -145,7 +151,7 @@ class PlayScreen:
         for ball_ in self.balls:
             ball_.draw_debug(surface, TOP_LEFT)
 
-    def reset_level(self):
+    def reset_level(self, slowmo=False):
         self.balls = [copy.deepcopy(self.start_ball)]
         self.player = self.balls[0]
         columns = levels.WIDTH
@@ -154,6 +160,8 @@ class PlayScreen:
         self.level.pressed_buttons = 0
         self.unlocked = False
         self.level.draw_debug_start_end(self.block_surface, (0, 0))
+        if slowmo:
+            self.slowmo_factor = self.SLOWMO_MAX
 
     def load_level(self, level_num):
         self.block_surface.fill(constants.TRANSPARENT)
@@ -225,9 +233,10 @@ class LevelTransition:
         self.done = False
 
         self.sound_grow_shell = sound.load_numbers("grow_shell%i", 10)
-        self.sound_grow_shell.set_volumes(0.4)
+        self.sound_grow_shell.set_volumes(0.3)
 
         self.sound_whoosh = sound.load("transition")
+        self.sound_whoosh.set_volume(0.7)
 
     def update(self):
         if self.frame <= self.PAUSE_LAST:
@@ -321,7 +330,9 @@ class LevelTransition:
 
 
 play_screen = PlayScreen()
-play_screen.load_level(20)
+file = open("Starting Level.txt", 'r')
+play_screen.load_level(int(file.readline()))
+file.close()
 
 transition = LevelTransition()
 
@@ -346,12 +357,19 @@ while True:
             transition.end_ball = play_screen.end_ball
 
             transition.new_surface.fill(constants.TRANSPARENT)
-            play_screen.load_level(play_screen.level_num + 1)
-            play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
-            transition.new_ball = play_screen.player
+
+            if play_screen.level_num != LAST_LEVEL:
+                play_screen.load_level(play_screen.level_num + 1)
+                play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
+                transition.new_ball = play_screen.player
+                transition.set_to_point(play_screen.player.position)
+
+            else:
+                transition.set_to_point(constants.SCREEN_MIDDLE)
+                play_screen.level_num += 1
 
             transition.set_from_point(transition.end_ball.position)
-            transition.set_to_point(play_screen.player.position)
+
             transition.init_animation()
 
             current_screen = TRANSITION
@@ -360,12 +378,21 @@ while True:
 
     elif current_screen == TRANSITION:
         transition.update()
+
+        if transition.frame == transition.IN_LAST:
+            if play_screen.level_num == LAST_LEVEL + 1:
+                for frame in range(60):
+                    events.update()
+                    screen_update(60)
+                pygame.quit()
+                sys.exit()
+
         transition.draw(final_display)
 
         if transition.done:
             transition.done = False
             current_screen = PLAY
 
-    debug.debug(final_display, 1, clock.get_fps())
+    # debug.debug(final_display, 1, clock.get_fps())
 
     screen_update(60)

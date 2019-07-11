@@ -18,9 +18,10 @@ SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
 
 
-bounce_notes = ["d2", "e2", "f#2", "g2", "a3", "b3", "c#3", "e3"]
+bounce_notes = ["a1", "b1", "c#2", "d2", "e2", "f#2",
+                "g2", "a2", "b2", "c#3", "e3"]
 sound_bounce = sound.load_strings("bounce%s", bounce_notes)
-sound_bounce.set_sound_limit(4, 15)
+sound_bounce.set_sound_limit(4, 30)
 
 sound_button = sound.load_numbers("button%i", 3)
 
@@ -70,9 +71,9 @@ class Ball:
         y = int(self.y)
         position = (x + screen_top_left[0], y + screen_top_left[1])
 
+        radius = self.radius
         if self.is_player:
             if shells == 0 or shells > len(self.containing_shells):
-                radius = self.radius
                 color = SHELL_DEBUG_COLORS[self.shell_type]
                 pygame.draw.circle(surface, color, position, radius)
 
@@ -80,10 +81,11 @@ class Ball:
                     radius -= SHELL_WIDTH
                     color = SHELL_DEBUG_COLORS[shell]
                     pygame.draw.circle(surface, color, position, radius)
+
+                radius = self.radius
             else:
                 first_shell = len(self.containing_shells) - shells
 
-                radius = self.radius
                 radius -= first_shell * SHELL_WIDTH
 
                 for shell in self.containing_shells[first_shell:]:
@@ -91,12 +93,14 @@ class Ball:
                     color = SHELL_DEBUG_COLORS[shell]
                     pygame.draw.circle(surface, color, position, radius)
 
+                radius = self.radius - ((first_shell + 1) * SHELL_WIDTH)
+
         else:
             color = SHELL_DEBUG_COLORS[self.shell_type]
-            pygame.draw.circle(surface, color, position, self.radius, 1)
+            pygame.draw.circle(surface, color, position, radius, 1)
 
         # draws a little pixel representing the ball's rotation
-        blip_distance = geometry.vector_to_difference(self.angle, self.radius)
+        blip_distance = geometry.vector_to_difference(self.angle, radius)
         blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
         blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
         pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 2)
