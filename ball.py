@@ -6,6 +6,7 @@ import math
 import constants
 import geometry
 import levels
+import debug
 
 # each "layer" of the ball is called a shell.
 SHELL_TYPES = 2
@@ -36,7 +37,7 @@ class Ball:
     """A simulated ball that experiences gravity and rolls."""
     DEBUG_COLOR = constants.MAGENTA
     BLIP_COLOR = constants.CYAN
-    CHECK_STEPS = 2  # how many intermediate frames to check between frames
+    CHECK_STEPS = 8  # how many intermediate frames to check between frames
     GROUNDED_THRESHOLD = 1.3  # what speed to start grounding the ball at
 
     def __init__(self, position, radius, shell_type, bounce_decay=0.7):
@@ -201,14 +202,19 @@ class Ball:
 
                 for segment in segments:
                     new_segment = geometry.point_and_segment(next_position, segment)
-                    if new_segment.length < shortest:
+                    if new_segment and new_segment.length < shortest:
                         shortest_segment = new_segment
                         shortest = new_segment.length
 
             if shortest_segment and shortest < radius:
-                velocity = (self.x_velocity, self.y_velocity)
-                perpendicular = geometry.inverse(shortest_segment.slope)
+                shortest_segment.slope = -shortest_segment.slope
+
+                velocity = (self.x_velocity, -self.y_velocity)
+                perpendicular = -geometry.inverse(shortest_segment.slope)
                 reflected = geometry.reflect_vector(perpendicular, velocity)
+                # print(velocity)
+                # print(reflected)
+                # print()
 
                 self.update_angular_velocity(perpendicular)
                 self.play_bounce_sound()
@@ -218,6 +224,7 @@ class Ball:
                 # pygame sure is weird.
                 new_velocity_x = reflected[0] * self.x_bounce_decay
                 new_velocity_y = -reflected[1] * self.y_bounce_decay
+
                 self.x_velocity = new_velocity_x
                 self.y_velocity = new_velocity_y
 

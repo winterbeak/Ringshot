@@ -9,7 +9,7 @@ import constants
 import events
 import graphics
 import random
-# import debug
+import debug
 
 import ball
 import levels
@@ -393,6 +393,7 @@ while True:
             transition.done = False
             current_screen = PLAY
 
-    # debug.debug(final_display, 1, clock.get_fps())
+    debug.debug(clock.get_fps())
+    debug.draw(final_display)
 
     screen_update(60)

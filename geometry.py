@@ -26,22 +26,7 @@ def difference_to_vector(difference):
     delta_x, delta_y = difference
     magnitude = math.sqrt(delta_x ** 2 + delta_y ** 2)
 
-    if delta_x == 0.0:
-        angle = math.atan(math.inf)
-        if delta_y < 0.0:
-            angle += math.pi
-    else:
-        # quadrants are weird here because moving down is positive!
-        angle = math.atan(abs(delta_y / delta_x))
-
-        if delta_x < 0.0:
-            if delta_y < 0.0:  # quadrant 2
-                angle = math.pi - angle
-            else:              # quadrant 3
-                angle += math.pi
-        else:
-            if delta_y > 0.0:  # quadrant 4
-                angle = math.pi * 2.0 - angle
+    angle = math.atan2(delta_y, delta_x)
 
     # print("%.2f / %.2f" % (delta_y, delta_x))
 
