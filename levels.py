@@ -3,6 +3,7 @@ import pygame
 import math
 import geometry
 import constants
+import graphics
 
 pygame.init()
 
@@ -48,6 +49,7 @@ LAYER_BUTTONS = constants.LAYER_BUTTONS
 DEBUG_START_COLOR = constants.YELLOW
 DEBUG_END_COLOR = constants.MAGENTA
 DEBUG_END_LOCKED_COLOR = constants.LOCK_COLOR
+DEBUG_BUTTON_COLOR = constants.RED
 
 
 # these are the characters that split up the different parts of levels.txt.
@@ -278,11 +280,11 @@ def draw_debug_tile(surface, layer_num, tile_id, pixel_position):
             for point in range(4):
                 points[point] = (points[point][0] + x, points[point][1] + y)
 
-            pygame.draw.polygon(surface, constants.RED, points)
+            pygame.draw.polygon(surface, DEBUG_BUTTON_COLOR, points)
 
             return
 
-        pygame.draw.rect(surface, constants.RED, (x, y, width, height))
+        pygame.draw.rect(surface, DEBUG_BUTTON_COLOR, (x, y, width, height))
 
 
 def grid_tile_position(point):
@@ -574,3 +576,36 @@ class Level:
         If no button exists on the tile, this returns False.
         """
         return self.pressed_grid[tile_position[0]][tile_position[1]]
+
+    def button_ripple(self, tile_position):
+        button_type = self.layers[LAYER_BUTTONS].tile_at(tile_position)
+        x, y = middle_pixel(tile_position)
+        cardinal_shift = constants.TILE_WIDTH // 2 - BUTTON_THICKNESS // 2
+        diagonal_shift = BUTTON_THICKNESS // 2
+
+        if button_type == BUTTONS_LEFT:
+            x -= cardinal_shift
+        elif button_type == BUTTONS_UP:
+            y -= cardinal_shift
+        elif button_type == BUTTONS_RIGHT:
+            x += cardinal_shift
+        elif button_type == BUTTONS_DOWN:
+            y += cardinal_shift
+        elif button_type == BUTTONS_TOPLEFT:
+            x += diagonal_shift
+            y += diagonal_shift
+        elif button_type == BUTTONS_TOPRIGHT:
+            x -= diagonal_shift
+            y += diagonal_shift
+        elif button_type == BUTTONS_BOTTOMRIGHT:
+            x -= diagonal_shift
+            y -= diagonal_shift
+        elif button_type == BUTTONS_BOTTOMLEFT:
+            x += diagonal_shift
+            y -= diagonal_shift
+        else:
+            return
+
+        position = graphics.screen_position((x, y))
+
+        graphics.create_ripple(position, DEBUG_BUTTON_COLOR, 20)

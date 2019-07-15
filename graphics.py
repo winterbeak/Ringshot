@@ -5,6 +5,16 @@ import constants
 pygame.init()
 
 
+def screen_position(position):
+    """All calculations are from (0, 0), while all drawing is done
+    from SCREEN_TOP_LEFT.  This converts a calculated position to a drawable
+    position.
+    """
+    x = position[0] + constants.SCREEN_LEFT
+    y = position[1] + constants.SCREEN_TOP
+    return int(x), int(y)
+
+
 def new_surface(size):
     surface = pygame.Surface(size)
     surface.set_colorkey(constants.TRANSPARENT)
@@ -122,3 +132,59 @@ class SpriteInstance:
 
             if self.delay == 0:
                 self.next_frame()
+
+
+ripples = []
+
+
+class Ripple:
+    def __init__(self, position, color, final_radius=20, expansion_rate=2.0):
+        self.position = (int(position[0]), int(position[1]))
+        self.radius = 1.0
+        self.half_radius = final_radius // 2
+        self.final_radius = final_radius
+        self.width = 1.0
+
+        self.expansion_rate = expansion_rate
+        self.color = color
+        self.done = False
+
+    def update(self, slowmo=1.0):
+        if self.radius <= self.half_radius:
+            self.width += self.expansion_rate / 2 / slowmo
+        elif self.radius >= self.final_radius:
+            self.done = True
+        else:
+            self.width -= self.expansion_rate / 2 / slowmo
+            if self.width < 1.0:
+                self.width = 1.0
+
+        self.radius += self.expansion_rate / slowmo
+
+    def draw(self, surface):
+        radius = int(self.radius)
+        width = int(self.width)
+        pygame.draw.circle(surface, self.color, self.position, radius, width)
+
+
+def create_ripple(position, color, final_radius=60, expansion_rate=2.0):
+    ripples.append(Ripple(position, color, final_radius, expansion_rate))
+
+
+def update_ripples(slowmo=1.0):
+    ripple_num = len(ripples)
+    for ripple in reversed(ripples):
+        ripple_num -= 1
+        ripple.update(slowmo)
+
+        if ripple.done:
+            del ripples[ripple_num]
+
+
+def draw_ripples(surface):
+    for ripple in ripples:
+        ripple.draw(surface)
+
+
+def clear_ripples():
+    ripples.clear()

@@ -122,6 +122,8 @@ class PlayScreen:
                 self.unlocked = True
                 self.level.draw_debug_start_end(self.block_surface, (0, 0))
 
+        graphics.update_ripples(self.slowmo_factor)
+
     def shoot_ball(self, position):
         """Shoots a ball towards a specified position."""
         old_ball = self.player
@@ -147,6 +149,8 @@ class PlayScreen:
     def draw(self, surface):
         surface.blit(self.block_surface, TOP_LEFT)
         self.level.draw_debug_layer(surface, levels.LAYER_BUTTONS, TOP_LEFT)
+
+        graphics.draw_ripples(surface)
 
         for ball_ in self.balls:
             ball_.draw_debug(surface, TOP_LEFT)
@@ -392,6 +396,7 @@ while True:
         if transition.done:
             transition.done = False
             current_screen = PLAY
+            graphics.clear_ripples()
 
     debug.debug(clock.get_fps())
     debug.draw(final_display)

@@ -6,6 +6,7 @@ import math
 import constants
 import geometry
 import levels
+import graphics
 import debug
 
 # each "layer" of the ball is called a shell.
@@ -66,6 +67,9 @@ class Ball:
         self.shell_type = shell_type
 
         self.touching_end = False
+
+        self.ghost_ripple_timer = 0.0
+        self.GHOST_RIPPLE_DELAY = 5.0
 
     def draw_debug(self, surface, screen_top_left=(0, 0), shells=0):
         x = int(self.x)  # pygame circles use integers
@@ -162,6 +166,7 @@ class Ball:
         are going in the level.
         """
         self.touching_end = False
+        ghost_ripple = False
 
         full_step = self.next_position(slowmo_factor)
         for step in range(1, self.CHECK_STEPS + 1):
@@ -191,13 +196,14 @@ class Ball:
 
                 if level.is_button(tile) and not level.is_pressed(tile):
                     level.press(tile)
+                    level.button_ripple(tile)
                     sound_button.play_random()
-
-                if self.shell_type == GHOST and not self.is_player:
-                    continue
 
                 segments = level.tile_to_segments(tile)
                 if not segments:
+                    continue
+                elif self.shell_type == GHOST and not self.is_player:
+                    ghost_ripple = True
                     continue
 
                 for segment in segments:
@@ -217,7 +223,7 @@ class Ball:
                 # print()
 
                 self.update_angular_velocity(perpendicular)
-                self.play_bounce_sound()
+
 
                 # velocity stuff
                 # y is negative since up is negative and down is positive!
@@ -227,6 +233,12 @@ class Ball:
 
                 self.x_velocity = new_velocity_x
                 self.y_velocity = new_velocity_y
+
+                magnitude = geometry.magnitude((new_velocity_x, new_velocity_y))
+
+                if magnitude > 3.0:
+                    self.ripple(magnitude * 4)
+                    sound_bounce.play_random(magnitude - 3.0, self.is_player)
 
                 break
 
@@ -238,25 +250,27 @@ class Ball:
             self.x_bounce_decay = self.NORMAL_BOUNCE_DECAY
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
 
+        if ghost_ripple and self.ghost_ripple_timer >= self.GHOST_RIPPLE_DELAY:
+            self.ghost_ripple_timer = 0.0
+            position = graphics.screen_position(self.position)
+            color = SHELL_DEBUG_COLORS[GHOST]
+            graphics.create_ripple(position, color, self.radius)
+
+        elif self.ghost_ripple_timer < self.GHOST_RIPPLE_DELAY:
+            self.ghost_ripple_timer += 1.0 / slowmo_factor
+
     def out_of_bounds(self):
         if -200 <= self.x < constants.SCREEN_WIDTH + 200:
             if -200 <= self.y < constants.SCREEN_HEIGHT + 200:
                 return False
         return True
 
-    def play_bounce_sound(self):
-        velocity = (self.x_velocity, self.y_velocity)
-
-        magnitude = geometry.magnitude(velocity)
-
-        if magnitude > 2.0:
-            volume = (magnitude - 2.0) / 10.0
-            # forces sound to be played if you are the player, since the player
-            # is likely more focused on that specific ball
-            if self.is_player:
-                sound_bounce.play_random(volume, True)
-            else:
-                sound_bounce.play_random(volume)
+    def ripple(self, radius):
+        radius = radius
+        color = SHELL_DEBUG_COLORS[self.shell_type]
+        x = self.x + constants.SCREEN_LEFT
+        y = self.y + constants.SCREEN_TOP
+        graphics.create_ripple((x, y), color, radius)
 
     def update_angular_velocity(self, contact_slope):
         """Updates the angular velocity of the ball (how fast it spins).
