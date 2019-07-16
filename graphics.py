@@ -1,6 +1,7 @@
 import pygame
 import os
 import constants
+import geometry
 
 pygame.init()
 
@@ -132,6 +133,51 @@ class SpriteInstance:
 
             if self.delay == 0:
                 self.next_frame()
+
+
+class Button:
+    """Level Editor uses its own Button class - this one is going to be
+    more generally applicable."""
+    UNPRESSED = 0
+    PRESSED = 1
+
+    def __init__(self, position, sprite_sheet):
+        self.sprite = SpriteInstance(sprite_sheet)
+        self.pressed = False
+        self.x = position[0]
+        self.y = position[1]
+        self.width = self.sprite.sheet.frame_w
+        self.height = self.sprite.sheet.frame_h
+
+    def draw(self, surface):
+        surface.blit(self.sprite.get_now_frame(), (self.x, self.y))
+
+    def touching_point(self, point):
+        """Returns whether the button touches a given point or not."""
+        if self.x <= point[0] <= self.x + self.width:
+            if self.y <= point[1] <= self.y + self.height:
+                return True
+        return False
+
+    def press(self):
+        self.pressed = True
+        self.sprite.current_anim = self.PRESSED
+
+    def unpress(self):
+        self.pressed = False
+        self.sprite.current_anim = self.UNPRESSED
+
+
+class CircleButton:
+    def __init__(self, position, radius):
+        self.x = int(position[0])
+        self.y = int(position[1])
+        self.radius = radius
+
+    def touching_point(self, point):
+        if geometry.distance((self.x, self.y), point) < self.radius:
+            return True
+        return False
 
 
 ripples = []

@@ -14,7 +14,8 @@ SHELL_TYPES = 2
 CENTER = 0  # the ball at the very center, cannot be shot
 NORMAL = 1  # the normal, 100% tangible shell type
 GHOST = 2  # the paranormal, 0% tangible shell type
-SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.GREEN)
+SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.GREEN,
+                      constants.ORANGE, constants.CYAN)
 
 SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
@@ -109,6 +110,53 @@ class Ball:
         blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
         blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
         pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 2)
+
+    def draw_debug_arc(self, surface, screen_top_left=(0, 0), shells = 0):
+        """Draws the shells as arcs rather than circles (so that they have
+        an opening on one side to 'shoot' the ball out of).  Doesn't
+        look as good because the arcs don't fill well, so this doesn't
+        get used.
+        """
+        x = int(self.x) + screen_top_left[0]
+        y = int(self.y) + screen_top_left[1]
+
+        radius = self.radius
+        width = SHELL_WIDTH
+        start = -self.angle + 0.5
+        end = -self.angle - 0.5
+        if self.is_player:
+            if shells == 0 or shells > len(self.containing_shells):
+                color = SHELL_DEBUG_COLORS[self.shell_type]
+                rect = (x - radius, y - radius, radius * 2, radius * 2)
+
+                pygame.draw.arc(surface, color, rect, start, end, width)
+
+                for shell in self.containing_shells[:-1]:
+                    radius -= SHELL_WIDTH
+                    color = SHELL_DEBUG_COLORS[shell]
+                    rect = (x - radius, y - radius, radius * 2, radius * 2)
+
+                    pygame.draw.arc(surface, color, rect, start, end, width)
+
+                radius -= SHELL_WIDTH
+                color = SHELL_DEBUG_COLORS[CENTER]
+                pygame.draw.circle(surface, color, (x, y), radius)
+
+            else:
+                first_shell = len(self.containing_shells) - shells
+
+                radius -= first_shell * SHELL_WIDTH
+
+                for shell in self.containing_shells[first_shell:]:
+                    radius -= SHELL_WIDTH
+                    color = SHELL_DEBUG_COLORS[shell]
+                    rect = (x - radius, y - radius, radius * 2, radius * 2)
+                    pygame.draw.arc(surface, color, rect, start, end, width)
+
+        else:
+            rect = (x - radius, y - radius, radius * 2, radius * 2)
+            color = SHELL_DEBUG_COLORS[self.shell_type]
+            pygame.draw.arc(surface, color, rect, start, end, width)
 
     def move(self, distance):
         """Instantly moves the ball a certain distance from its

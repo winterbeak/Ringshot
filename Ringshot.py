@@ -1,6 +1,8 @@
 import sound
 
 import pygame
+import math
+import random
 import copy
 import os
 import sys
@@ -8,7 +10,7 @@ import sys
 import constants
 import events
 import graphics
-import random
+import geometry
 import debug
 
 import ball
@@ -44,10 +46,120 @@ sound_transition = sound.load("transition")
 
 LAST_LEVEL = levels.count_levels() - 1
 
+save_data = open("Easily Editable Save Data.txt", 'r')
+last_unlocked = int(save_data.read())
+save_data.close()
+
+LEVELS_PER_COURSE = 18
+
+MENU_FONT = pygame.font.SysFont("Tahoma", 16)
+
 
 class MenuScreen:
     def __init__(self):
         self.switch_to_level = False
+        self.selected_level = 0
+        self.transition_ball = None
+
+        self.CIRCLE_RADII = (100, 140, 180, 220, 260)
+        self.BUTTON_RING_RADII = (120, 160, 200, 240)
+        self.angle_offsets = [0.0, 0.2, 0.4, 0.6]
+        self.ROTATE_SPEED = 0.0005
+        self.SHELL_COLORS = ball.SHELL_DEBUG_COLORS
+
+        self.BUTTON_RADIUS = 16
+
+        self.mouse_level = -1
+
+    def update(self):
+        for angle_num in range(len(self.angle_offsets)):
+            self.angle_offsets[angle_num] += self.ROTATE_SPEED
+            self.angle_offsets[angle_num] %= math.pi * 2
+
+        if events.mouse.released and self.mouse_level != -1:
+            self.create_transition_ball()
+            self.selected_level = self.mouse_level
+            self.switch_to_level = True
+
+        debug.debug(self.touching_level(events.mouse.position))
+
+        self.mouse_level = self.touching_level(events.mouse.position)
+
+    def draw(self, surface):
+        position = (constants.FULL_WIDTH // 2, constants.FULL_HEIGHT // 2)
+        circle_index = len(self.CIRCLE_RADII)
+        for color in reversed(self.SHELL_COLORS):
+            circle_index -= 1
+            radius = self.CIRCLE_RADII[circle_index]
+            pygame.draw.circle(surface, color, position, radius)
+
+        course_num = -1
+        for level in range(last_unlocked):
+            if level % LEVELS_PER_COURSE == 0:
+                course_num += 1
+
+            level_center = self.level_center(level)
+
+            text = MENU_FONT.render(str(level + 1), False, constants.WHITE)
+            text_x = level_center[0] - (text.get_width() / 2)
+            text_y = level_center[1] - (text.get_height() / 2)
+
+            surface.blit(text, (text_x, text_y))
+
+        if self.mouse_level != -1:
+            color = constants.WHITE
+            position = self.level_center(self.mouse_level)
+            pygame.draw.circle(surface, color, position, self.BUTTON_RADIUS, 2)
+
+    def level_center(self, level_num):
+        course_num = level_num // LEVELS_PER_COURSE
+        level_in_course = level_num % LEVELS_PER_COURSE
+
+        angle = math.pi * 2 * (level_in_course / LEVELS_PER_COURSE)
+        angle -= math.pi / 2
+        angle += self.angle_offsets[course_num]
+
+        x = self.BUTTON_RING_RADII[course_num] * math.cos(angle)
+        y = self.BUTTON_RING_RADII[course_num] * math.sin(angle)
+        x += constants.FULL_MIDDLE[0]
+        y += constants.FULL_MIDDLE[1]
+
+        return int(x), int(y)
+
+    def touching_level(self, point):
+        distance = geometry.distance(constants.FULL_MIDDLE, point)
+
+        if distance < 100.0:
+            return -1
+
+        for course_num, radius in enumerate(self.CIRCLE_RADII[1:]):
+            if distance < radius:
+                course = course_num
+                break
+        else:
+            return -1
+
+        course_angle = (math.pi * 2.0 / LEVELS_PER_COURSE)
+
+        angle = geometry.angle_between(constants.FULL_MIDDLE, point)
+        angle += math.pi / 2
+        angle -= self.angle_offsets[course_num]
+        angle += course_angle / 2
+        if angle < 0.0:
+            angle += math.pi * 2
+        level_in_course = int(angle / course_angle)
+        level = level_in_course + course * LEVELS_PER_COURSE
+
+        point_distance = geometry.distance(point, self.level_center(level))
+        if point_distance < self.BUTTON_RADIUS:
+            return level
+        return -1
+
+    def create_transition_ball(self):
+        course_num = self.mouse_level // LEVELS_PER_COURSE
+        position = self.level_center(self.mouse_level)
+        new_ball = ball.Ball(position, 1, course_num + 1)
+        self.transition_ball = new_ball
 
 
 class PlayScreen:
@@ -333,6 +445,8 @@ class LevelTransition:
         self.shell_count = 1
 
 
+main_menu = MenuScreen()
+
 play_screen = PlayScreen()
 file = open("Starting Level.txt", 'r')
 play_screen.load_level(int(file.readline()))
@@ -340,9 +454,10 @@ file.close()
 
 transition = LevelTransition()
 
-PLAY = 0
-TRANSITION = 1
-current_screen = PLAY
+MENU = 0
+PLAY = 1
+TRANSITION = 2
+current_screen = MENU
 
 while True:
     events.update()
@@ -354,6 +469,7 @@ while True:
 
         if play_screen.transition:
             play_screen.transition = False
+            current_screen = TRANSITION
             transition.frame = 0
 
             transition.previous_surface.fill(constants.TRANSPARENT)
@@ -376,9 +492,38 @@ while True:
 
             transition.init_animation()
 
-            current_screen = TRANSITION
+            sound.play(ball.end_note, 0.6)
 
-            sound.play(ball.end_note, 0.5)
+            if last_unlocked < play_screen.level_num + 1:
+                last_unlocked = play_screen.level_num + 1
+                save_data = open("Easily Editable Save Data.txt", 'w')
+                save_data.write(str(last_unlocked) + "\n")
+                save_data.close()
+
+    elif current_screen == MENU:
+        main_menu.update()
+        main_menu.draw(final_display)
+        if main_menu.switch_to_level:
+            main_menu.switch_to_level = False
+            current_screen = TRANSITION
+            transition.frame = 0
+
+            level_num = main_menu.selected_level
+
+            transition.previous_surface.fill(constants.TRANSPARENT)
+            transition.previous_surface.blit(final_display, (0, 0))
+            transition.end_ball = main_menu.transition_ball
+
+            transition.new_surface.fill(constants.TRANSPARENT)
+            play_screen.load_level(level_num)
+            play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
+            transition.new_ball = play_screen.player
+            transition.set_to_point(play_screen.player.position)
+
+            from_x = main_menu.transition_ball.position[0] - SCREEN_LEFT
+            from_y = main_menu.transition_ball.position[1] - SCREEN_TOP
+            transition.set_from_point((from_x, from_y))
+            transition.init_animation()
 
     elif current_screen == TRANSITION:
         transition.update()
