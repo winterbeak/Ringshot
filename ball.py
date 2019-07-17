@@ -101,15 +101,20 @@ class Ball:
 
                 radius = self.radius - ((first_shell + 1) * SHELL_WIDTH)
 
+            blip_distance = geometry.vector_to_difference(self.angle, radius - 1)
+            blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
+            blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
+
+            pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 2)
+
         else:
             color = SHELL_DEBUG_COLORS[self.shell_type]
             pygame.draw.circle(surface, color, position, radius, 1)
 
-        # draws a little pixel representing the ball's rotation
-        blip_distance = geometry.vector_to_difference(self.angle, radius)
-        blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
-        blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
-        pygame.draw.line(surface, self.BLIP_COLOR, position, (blip_x, blip_y), 2)
+            blip_distance = geometry.vector_to_difference(self.angle, radius - 1)
+            blip_x = int(self.x + blip_distance[0] + screen_top_left[0])
+            blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
+            surface.fill(self.BLIP_COLOR, (blip_x, blip_y, 2, 2))
 
     def draw_debug_arc(self, surface, screen_top_left=(0, 0), shells = 0):
         """Draws the shells as arcs rather than circles (so that they have
@@ -331,7 +336,7 @@ class Ball:
         """
         velocity = (self.x_velocity, self.y_velocity)
 
-        direction = math.atan(contact_slope)
+        direction = -math.atan(contact_slope)
         velocity_vector = geometry.difference_to_vector(velocity)
         magnitude = geometry.component_in_direction(velocity_vector, direction)
 
@@ -366,3 +371,7 @@ class Ball:
 
         while self.angle > math.pi:
             self.angle -= math.pi * 2
+
+    def point_towards_end(self, level):
+        end_point = levels.middle_pixel(level.end_tile)
+        self.angle = geometry.angle_between(self.position, end_point)

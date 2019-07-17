@@ -52,7 +52,16 @@ save_data.close()
 
 LEVELS_PER_COURSE = 18
 
-MENU_FONT = pygame.font.SysFont("Tahoma", 16)
+LEVEL_FONT = graphics.load_image("level_numbers")
+
+
+def render_level_number(number):
+    number_string = str(number)
+    surface = graphics.new_surface((len(number_string) * 9, 15))
+    for digit_num, digit in enumerate(str(number)):
+        x = int(digit) * 9
+        surface.blit(LEVEL_FONT, (digit_num * 9, 0), (x, 0, 9, 15))
+    return surface
 
 
 class MenuScreen:
@@ -63,7 +72,7 @@ class MenuScreen:
 
         self.CIRCLE_RADII = (100, 140, 180, 220, 260)
         self.BUTTON_RING_RADII = (120, 160, 200, 240)
-        self.angle_offsets = [0.0, 0.2, 0.4, 0.6]
+        self.angle_offsets = [0.6, 0.4, 0.2, 0.0]
         self.ROTATE_SPEED = 0.0005
         self.SHELL_COLORS = ball.SHELL_DEBUG_COLORS
 
@@ -77,18 +86,21 @@ class MenuScreen:
             self.angle_offsets[angle_num] %= math.pi * 2
 
         if events.mouse.released and self.mouse_level != -1:
-            self.create_transition_ball()
-            self.selected_level = self.mouse_level
-            self.switch_to_level = True
+            if self.mouse_level < last_unlocked:
+                self.create_transition_ball()
+                self.selected_level = self.mouse_level
+                self.switch_to_level = True
 
         debug.debug(self.touching_level(events.mouse.position))
 
         self.mouse_level = self.touching_level(events.mouse.position)
 
     def draw(self, surface):
+        last_unlocked_course = (last_unlocked - 1) // LEVELS_PER_COURSE
+
         position = (constants.FULL_WIDTH // 2, constants.FULL_HEIGHT // 2)
-        circle_index = len(self.CIRCLE_RADII)
-        for color in reversed(self.SHELL_COLORS):
+        circle_index = last_unlocked_course + 2
+        for color in reversed(self.SHELL_COLORS[:last_unlocked_course + 2]):
             circle_index -= 1
             radius = self.CIRCLE_RADII[circle_index]
             pygame.draw.circle(surface, color, position, radius)
@@ -100,13 +112,13 @@ class MenuScreen:
 
             level_center = self.level_center(level)
 
-            text = MENU_FONT.render(str(level + 1), False, constants.WHITE)
+            text = render_level_number(level + 1)
             text_x = level_center[0] - (text.get_width() / 2)
             text_y = level_center[1] - (text.get_height() / 2)
 
             surface.blit(text, (text_x, text_y))
 
-        if self.mouse_level != -1:
+        if self.mouse_level != -1 and self.mouse_level < last_unlocked:
             color = constants.WHITE
             position = self.level_center(self.mouse_level)
             pygame.draw.circle(surface, color, position, self.BUTTON_RADIUS, 2)
@@ -483,6 +495,8 @@ while True:
                 play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
                 transition.new_ball = play_screen.player
                 transition.set_to_point(play_screen.player.position)
+
+                play_screen.player.point_towards_end(play_screen.level)
 
             else:
                 transition.set_to_point(constants.SCREEN_MIDDLE)

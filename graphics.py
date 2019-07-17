@@ -24,7 +24,7 @@ def new_surface(size):
 
 
 def load_image(path):
-    image = pygame.image.load(os.path.join("images", path))
+    image = pygame.image.load(os.path.join("images", path + ".png"))
     width = image.get_width() * constants.PIXEL
     height = image.get_height() * constants.PIXEL
     resized = pygame.transform.scale(image, (width, height))
