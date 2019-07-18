@@ -87,7 +87,6 @@ class MenuScreen:
 
         if events.mouse.released and self.mouse_level != -1:
             if self.mouse_level < last_unlocked:
-                self.create_transition_ball()
                 self.selected_level = self.mouse_level
                 self.switch_to_level = True
 
@@ -166,12 +165,6 @@ class MenuScreen:
         if point_distance < self.BUTTON_RADIUS:
             return level
         return -1
-
-    def create_transition_ball(self):
-        course_num = self.mouse_level // LEVELS_PER_COURSE
-        position = self.level_center(self.mouse_level)
-        new_ball = ball.Ball(position, 1, course_num + 1)
-        self.transition_ball = new_ball
 
 
 class PlayScreen:
@@ -328,6 +321,9 @@ class LevelTransition:
     LAST_RADIUS = 700
     LAST_WIDTH = 150
 
+    GENERAL = 1
+    POINT_TO_LEVEL = 2
+
     def __init__(self):
         self.previous_surface = graphics.new_surface(constants.FULL_SIZE)
         self.new_surface = graphics.new_surface(constants.FULL_SIZE)
@@ -366,6 +362,8 @@ class LevelTransition:
         self.sound_whoosh = sound.load("transition")
         self.sound_whoosh.set_volume(0.7)
 
+        self.type = 0
+
     def update(self):
         if self.frame <= self.PAUSE_LAST:
             pass
@@ -380,7 +378,7 @@ class LevelTransition:
             self.radius = self.radius_a * equation
             self.width = self.width_a * equation
 
-        else:
+        elif self.type == self.POINT_TO_LEVEL:
             if (self.frame - self.IN_LAST) % self.SHELL_LENGTH == 0:
                 self.shell_count += 1
 
@@ -388,6 +386,9 @@ class LevelTransition:
                     self.done = True
                 else:
                     self.sound_grow_shell.play(self.shell_count - 2)
+
+        else:
+            self.done = True
 
         if self.frame == self.PAUSE_LAST:
             self.sound_whoosh.play()
@@ -424,7 +425,7 @@ class LevelTransition:
 
             pygame.draw.circle(surface, self.color, center, radius, width)
 
-        else:
+        elif self.type == self.POINT_TO_LEVEL:
             surface.blit(self.new_surface, (0, 0))
             self.new_ball.draw_debug(surface, TOP_LEFT, self.shell_count)
 
@@ -434,9 +435,24 @@ class LevelTransition:
     def set_to_point(self, position):
         self.to_point = (position[0] + SCREEN_LEFT, position[1] + SCREEN_TOP)
 
-    def init_animation(self):
+    def init_general(self, from_point, to_point):
+        self.type = self.GENERAL
+
+        self.frame = 0
+        self.previous_surface.fill(constants.TRANSPARENT)
+        self.previous_surface.blit(final_display, (0, 0))
+
+        self.new_surface.fill(constants.TRANSPARENT)
+
+        length = (self.OUT_LENGTH + self.IN_LENGTH)
+        self.x_change = (to_point[0] - from_point[0]) / length
+        self.y_change = (to_point[1] - from_point[1]) / length
+        self.center = from_point
+
+    def init_point_to_level(self, from_point, level, new_ball, color):
         """
-        Initializes the circle transition.
+        Initializes the circle, starting from a given point to the ball in
+        the given level, including building up the shells of the new ball.
 
         from_point is the first point.
         to_point is the
@@ -447,14 +463,48 @@ class LevelTransition:
         x is the first frame (0)
         d is the last frame
         """
-        length = (self.OUT_LENGTH + self.IN_LENGTH)
-        self.x_change = (self.to_point[0] - self.from_point[0]) / length
-        self.y_change = (self.to_point[1] - self.from_point[1]) / length
-        self.center = self.from_point
+        self.new_ball = new_ball
+        self.new_ball.point_towards_end(level)
 
-        self.color = ball.SHELL_DEBUG_COLORS[self.end_ball.shell_type]
+        to_point = graphics.screen_position(self.new_ball.position)
 
+        self.init_general(from_point, to_point)
+        self.type = self.POINT_TO_LEVEL
+        level.draw_debug(transition.new_surface, TOP_LEFT)
+
+        self.color = color
         self.shell_count = 1
+
+    def init_point_to_point(self, point1, point2):
+        pass
+
+
+def next_level_transition():
+    old_position = graphics.screen_position(play_screen.end_ball.position)
+    if play_screen.level_num != LAST_LEVEL:
+        color = ball.SHELL_DEBUG_COLORS[play_screen.end_ball.shell_type]
+
+        play_screen.load_level(play_screen.level_num + 1)
+        level = play_screen.level
+        new_ball = play_screen.player
+
+        transition.init_point_to_level(old_position, level, new_ball, color)
+
+    else:
+        transition.init_general(old_position, constants.SCREEN_MIDDLE)
+        play_screen.level_num += 1
+
+
+def menu_level_transition():
+    level_num = main_menu.selected_level
+    old_position = main_menu.level_center(level_num)
+    color = ball.SHELL_DEBUG_COLORS[level_num // LEVELS_PER_COURSE + 1]
+
+    play_screen.load_level(level_num)
+    level = play_screen.level
+    new_ball = play_screen.player
+
+    transition.init_point_to_level(old_position, level, new_ball, color)
 
 
 main_menu = MenuScreen()
@@ -482,29 +532,8 @@ while True:
         if play_screen.transition:
             play_screen.transition = False
             current_screen = TRANSITION
-            transition.frame = 0
 
-            transition.previous_surface.fill(constants.TRANSPARENT)
-            transition.previous_surface.blit(final_display, (0, 0))
-            transition.end_ball = play_screen.end_ball
-
-            transition.new_surface.fill(constants.TRANSPARENT)
-
-            if play_screen.level_num != LAST_LEVEL:
-                play_screen.load_level(play_screen.level_num + 1)
-                play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
-                transition.new_ball = play_screen.player
-                transition.set_to_point(play_screen.player.position)
-
-                play_screen.player.point_towards_end(play_screen.level)
-
-            else:
-                transition.set_to_point(constants.SCREEN_MIDDLE)
-                play_screen.level_num += 1
-
-            transition.set_from_point(transition.end_ball.position)
-
-            transition.init_animation()
+            next_level_transition()
 
             sound.play(ball.end_note, 0.6)
 
@@ -520,24 +549,8 @@ while True:
         if main_menu.switch_to_level:
             main_menu.switch_to_level = False
             current_screen = TRANSITION
-            transition.frame = 0
 
-            level_num = main_menu.selected_level
-
-            transition.previous_surface.fill(constants.TRANSPARENT)
-            transition.previous_surface.blit(final_display, (0, 0))
-            transition.end_ball = main_menu.transition_ball
-
-            transition.new_surface.fill(constants.TRANSPARENT)
-            play_screen.load_level(level_num)
-            play_screen.level.draw_debug(transition.new_surface, TOP_LEFT)
-            transition.new_ball = play_screen.player
-            transition.set_to_point(play_screen.player.position)
-
-            from_x = main_menu.transition_ball.position[0] - SCREEN_LEFT
-            from_y = main_menu.transition_ball.position[1] - SCREEN_TOP
-            transition.set_from_point((from_x, from_y))
-            transition.init_animation()
+            menu_level_transition()
 
     elif current_screen == TRANSITION:
         transition.update()
