@@ -80,6 +80,8 @@ class MenuScreen:
 
         self.mouse_level = -1
 
+        self.block_layers = levels.load_all_block_layers()
+
     def update(self):
         for angle_num in range(len(self.angle_offsets)):
             self.angle_offsets[angle_num] += self.ROTATE_SPEED
@@ -94,7 +96,10 @@ class MenuScreen:
 
         self.mouse_level = self.touching_level(events.mouse.position)
 
-    def draw(self, surface):
+    def draw(self, surface, thumbnail=True):
+        """If thumbnail is set to false, then the center level thumbnail
+        will not be drawn.  Only used during the level-menu transition.
+        """
         last_unlocked_course = (last_unlocked - 1) // LEVELS_PER_COURSE
 
         position = (constants.FULL_WIDTH // 2, constants.FULL_HEIGHT // 2)
@@ -121,6 +126,15 @@ class MenuScreen:
             color = constants.WHITE
             position = self.level_center(self.mouse_level)
             pygame.draw.circle(surface, color, position, self.BUTTON_RADIUS, 2)
+
+            if self.mouse_level < len(self.block_layers) and thumbnail:
+                position = constants.FULL_MIDDLE_INT
+                pygame.draw.circle(surface, constants.BLACK, position, 60)
+
+                layer = self.block_layers[self.mouse_level]
+                x = constants.FULL_MIDDLE[0] - layer.THUMBNAIL_WIDTH / 2
+                y = constants.FULL_MIDDLE[1] - layer.THUMBNAIL_HEIGHT / 2
+                layer.draw_thumbnail(surface, (x, y))
 
     def level_center(self, level_num):
         course_num = level_num // LEVELS_PER_COURSE
@@ -323,6 +337,7 @@ class LevelTransition:
 
     GENERAL = 1
     POINT_TO_LEVEL = 2
+    LEVEL_TO_MENU = 3
 
     def __init__(self):
         self.previous_surface = graphics.new_surface(constants.FULL_SIZE)
@@ -429,13 +444,16 @@ class LevelTransition:
             surface.blit(self.new_surface, (0, 0))
             self.new_ball.draw_debug(surface, TOP_LEFT, self.shell_count)
 
+        else:  # level-menu transition carries on for one more frame
+            surface.blit(self.new_surface, (0, 0))
+
     def set_from_point(self, position):
         self.from_point = (position[0] + SCREEN_LEFT, position[1] + SCREEN_TOP)
 
     def set_to_point(self, position):
         self.to_point = (position[0] + SCREEN_LEFT, position[1] + SCREEN_TOP)
 
-    def init_general(self, from_point, to_point):
+    def init_general(self, from_point, to_point, color):
         self.type = self.GENERAL
 
         self.frame = 0
@@ -448,6 +466,8 @@ class LevelTransition:
         self.x_change = (to_point[0] - from_point[0]) / length
         self.y_change = (to_point[1] - from_point[1]) / length
         self.center = from_point
+
+        self.color = color
 
     def init_point_to_level(self, from_point, level, new_ball, color):
         """
@@ -468,11 +488,10 @@ class LevelTransition:
 
         to_point = graphics.screen_position(self.new_ball.position)
 
-        self.init_general(from_point, to_point)
+        self.init_general(from_point, to_point, color)
         self.type = self.POINT_TO_LEVEL
         level.draw_debug(transition.new_surface, TOP_LEFT)
 
-        self.color = color
         self.shell_count = 1
 
     def init_point_to_point(self, point1, point2):
@@ -481,18 +500,14 @@ class LevelTransition:
 
 def next_level_transition():
     old_position = graphics.screen_position(play_screen.end_ball.position)
-    if play_screen.level_num != LAST_LEVEL:
-        color = ball.SHELL_DEBUG_COLORS[play_screen.end_ball.shell_type]
 
-        play_screen.load_level(play_screen.level_num + 1)
-        level = play_screen.level
-        new_ball = play_screen.player
+    color = ball.SHELL_DEBUG_COLORS[play_screen.end_ball.shell_type]
 
-        transition.init_point_to_level(old_position, level, new_ball, color)
+    play_screen.load_level(play_screen.level_num + 1)
+    level = play_screen.level
+    new_ball = play_screen.player
 
-    else:
-        transition.init_general(old_position, constants.SCREEN_MIDDLE)
-        play_screen.level_num += 1
+    transition.init_point_to_level(old_position, level, new_ball, color)
 
 
 def menu_level_transition():
@@ -505,6 +520,29 @@ def menu_level_transition():
     new_ball = play_screen.player
 
     transition.init_point_to_level(old_position, level, new_ball, color)
+
+
+def level_menu_transition():
+    color = ball.SHELL_DEBUG_COLORS[play_screen.end_ball.shell_type]
+    from_point = graphics.screen_position(play_screen.end_ball.position)
+    to_point = constants.FULL_MIDDLE
+
+    transition.init_general(from_point, to_point, color)
+    transition.type = transition.LEVEL_TO_MENU
+    main_menu.draw(transition.new_surface, False)
+
+    play_screen.level_num += 1
+
+
+def check_level_menu_transition():
+    if play_screen.level_num + 1 == last_unlocked:
+        if last_unlocked % LEVELS_PER_COURSE == 0:
+            return True
+
+    if play_screen.level_num == LAST_LEVEL:
+        return True
+
+    return False
 
 
 main_menu = MenuScreen()
@@ -533,7 +571,10 @@ while True:
             play_screen.transition = False
             current_screen = TRANSITION
 
-            next_level_transition()
+            if check_level_menu_transition():
+                level_menu_transition()
+            else:
+                next_level_transition()
 
             sound.play(ball.end_note, 0.6)
 
@@ -555,22 +596,19 @@ while True:
     elif current_screen == TRANSITION:
         transition.update()
 
-        if transition.frame == transition.IN_LAST:
-            if play_screen.level_num == LAST_LEVEL + 1:
-                for frame in range(60):
-                    events.update()
-                    screen_update(60)
-                pygame.quit()
-                sys.exit()
-
         transition.draw(final_display)
 
         if transition.done:
             transition.done = False
-            current_screen = PLAY
+
+            if transition.type == transition.POINT_TO_LEVEL:
+                current_screen = PLAY
+            elif transition.type == transition.LEVEL_TO_MENU:
+                current_screen = MENU
             graphics.clear_ripples()
 
     debug.debug(clock.get_fps())
+    debug.debug(current_screen)
     debug.draw(final_display)
 
     screen_update(60)

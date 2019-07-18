@@ -100,6 +100,18 @@ def load_level(level_num):
     return level
 
 
+def load_all_block_layers():
+    """Returns a list containing the block layer of every level.  Used in the
+    main menu to draw level thumbnails in the center of the level select.
+    """
+    file = open("levels.txt", 'r')
+    level_strings = file.read().split(LEVEL_SEPARATOR)
+    file.close()
+
+    levels = [string_to_level(string) for string in level_strings]
+    return [level.layers[LAYER_BLOCKS] for level in levels]
+
+
 def count_levels():
     """Returns the number of levels in the file."""
     file = open("levels.txt", 'r')
@@ -364,6 +376,10 @@ def is_ground(tile_type):
 
 
 class Layer:
+    THUMBNAIL_TILE = 2
+    THUMBNAIL_WIDTH = THUMBNAIL_TILE * WIDTH
+    THUMBNAIL_HEIGHT = THUMBNAIL_TILE * HEIGHT
+
     def __init__(self):
         self.grid = [[EMPTY] * HEIGHT for _ in range(WIDTH)]
 
@@ -392,7 +408,9 @@ class Layer:
         for column in range(WIDTH):
             for row in range(HEIGHT):
                 if self.tile_at((column, row)) != EMPTY:
-                    rect = (start_x + column * 2, start_y + row * 2, 2, 2)
+                    x = start_x + column * self.THUMBNAIL_TILE
+                    y = start_y + row * self.THUMBNAIL_TILE
+                    rect = (x, y, self.THUMBNAIL_TILE, self.THUMBNAIL_TILE)
                     surface.fill(constants.WHITE, rect)
 
     def change_tile(self, tile_id, tile_position):
