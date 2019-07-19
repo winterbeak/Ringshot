@@ -291,7 +291,8 @@ class Ball:
 
                 if magnitude > 3.0:
                     self.ripple(magnitude * 4)
-                    sound_bounce.play_random(magnitude - 3.0, self.is_player)
+                    volume = (magnitude - 3.0) / 5.0 + 0.2
+                    sound_bounce.play_random(volume, self.is_player)
 
                 break
 

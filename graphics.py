@@ -1,7 +1,10 @@
 import pygame
 import os
+import random
+
 import constants
 import geometry
+
 
 pygame.init()
 
@@ -58,6 +61,34 @@ def draw_tile_grid(surface, color):
     width = constants.TILE_WIDTH
     height = constants.TILE_HEIGHT
     draw_grid(surface, color, columns, rows, width, height)
+
+
+class Shaker:
+    """Shakes the screen.  This was way too inefficient and laggy, so
+    I'm not actually going to use it.  Instead, I just manually adjust
+    the position of everything I draw.
+    """
+    def __init__(self):
+        self.temp_surface = new_surface(constants.FULL_SIZE)
+        self.power = 0
+
+    def shake(self, surface, background_color=constants.BLACK):
+        if self.power == 0:
+            return
+
+        x = random.randint(-self.power, self.power)
+        y = random.randint(-self.power, self.power)
+        self.temp_surface.blit(surface, (0, 0))
+        surface.fill(background_color)
+        surface.blit(self.temp_surface, (x, y))
+
+        self.power = 0
+
+    def set_power(self, power):
+        self.power = power
+
+
+shaker = Shaker()
 
 
 class Spritesheet:

@@ -5,7 +5,6 @@ import math
 import random
 import copy
 import os
-import sys
 
 import constants
 import events
@@ -65,7 +64,22 @@ def render_level_number(number):
 
 
 class MenuScreen:
+    PAUSE_LENGTH = 60
+    GROW_LENGTH = 120
+    FADE_LENGTH = 60
+
+    PAUSE_LAST = PAUSE_LENGTH
+    GROW_LAST = PAUSE_LAST + GROW_LENGTH
+    FADE_LAST = GROW_LAST + GROW_LENGTH
+
     def __init__(self):
+        self.grow_frame = 0
+        self.grow_course = False
+        self.grow_radius = 0.0
+        self.target_radius = 0.0
+        self.grow_a = 0.0
+        self.level_alpha = 0
+
         self.switch_to_level = False
         self.selected_level = 0
         self.transition_ball = None
@@ -87,6 +101,24 @@ class MenuScreen:
             self.angle_offsets[angle_num] += self.ROTATE_SPEED
             self.angle_offsets[angle_num] %= math.pi * 2
 
+        if self.grow_course:
+            if self.grow_frame <= self.PAUSE_LAST:
+                pass
+            elif self.grow_frame <= self.GROW_LAST:
+                a = self.grow_a
+                x = self.grow_frame
+                d = self.GROW_LAST
+                c = self.target_radius
+                self.grow_radius = a * (x - d) ** 2 + c
+            elif self.level_alpha < 255:
+                self.level_alpha += 10
+                if self.level_alpha > 255:
+                    self.level_alpha = 255
+            else:
+                self.grow_course = False
+            self.grow_frame += 1
+            return
+
         if events.mouse.released and self.mouse_level != -1:
             if self.mouse_level < last_unlocked:
                 self.selected_level = self.mouse_level
@@ -96,13 +128,38 @@ class MenuScreen:
 
         self.mouse_level = self.touching_level(events.mouse.position)
 
-    def draw(self, surface, thumbnail=True):
-        """If thumbnail is set to false, then the center level thumbnail
-        will not be drawn.  Only used during the level-menu transition.
+    def draw(self, surface):
+        """Set level_hover to false if you don't want to draw the level
+        being hovered over.
         """
-        last_unlocked_course = (last_unlocked - 1) // LEVELS_PER_COURSE
+        if self.PAUSE_LAST < self.grow_frame <= self.GROW_LAST:
+            shake_x = random.randint(-2, 2)
+            shake_y = random.randint(-2, 2)
+        else:
+            shake_x = 0
+            shake_y = 0
+
+        last_level = last_unlocked
+        if self.grow_course:
+            last_level -= 1
+            color = self.SHELL_COLORS[last_level // 18 + 1]
+            position = constants.FULL_MIDDLE_INT
+            position = (position[0] + shake_x, position[1] + shake_y)
+            pygame.draw.circle(surface, color, position, int(self.grow_radius))
+
+            level_center = self.level_center(last_level)
+
+            text = render_level_number(last_level + 1)
+            text_x = level_center[0] - (text.get_width() / 2) + shake_x
+            text_y = level_center[1] - (text.get_height() / 2) + shake_y
+            text.set_alpha(self.level_alpha)
+
+            surface.blit(text, (text_x, text_y))
+
+        last_unlocked_course = (last_level - 1) // LEVELS_PER_COURSE
 
         position = (constants.FULL_WIDTH // 2, constants.FULL_HEIGHT // 2)
+        position = (position[0] + shake_x, position[1] + shake_y)
         circle_index = last_unlocked_course + 2
         for color in reversed(self.SHELL_COLORS[:last_unlocked_course + 2]):
             circle_index -= 1
@@ -110,24 +167,27 @@ class MenuScreen:
             pygame.draw.circle(surface, color, position, radius)
 
         course_num = -1
-        for level in range(last_unlocked):
+        for level in range(last_level):
             if level % LEVELS_PER_COURSE == 0:
                 course_num += 1
 
             level_center = self.level_center(level)
 
             text = render_level_number(level + 1)
-            text_x = level_center[0] - (text.get_width() / 2)
-            text_y = level_center[1] - (text.get_height() / 2)
+            text_x = level_center[0] - (text.get_width() / 2) + shake_x
+            text_y = level_center[1] - (text.get_height() / 2) + shake_y
 
             surface.blit(text, (text_x, text_y))
 
-        if self.mouse_level != -1 and self.mouse_level < last_unlocked:
+        if self.grow_course:
+            return
+
+        if -1 < self.mouse_level < last_level:
             color = constants.WHITE
             position = self.level_center(self.mouse_level)
             pygame.draw.circle(surface, color, position, self.BUTTON_RADIUS, 2)
 
-            if self.mouse_level < len(self.block_layers) and thumbnail:
+            if self.mouse_level < len(self.block_layers):
                 position = constants.FULL_MIDDLE_INT
                 pygame.draw.circle(surface, constants.BLACK, position, 60)
 
@@ -179,6 +239,17 @@ class MenuScreen:
         if point_distance < self.BUTTON_RADIUS:
             return level
         return -1
+
+    def init_grow_course(self):
+        previous_course = (last_unlocked - 2) // 18
+        self.grow_course = True
+        self.grow_frame = 0
+        self.level_alpha = 0
+        self.grow_radius = self.CIRCLE_RADII[previous_course + 1]
+        self.target_radius = self.CIRCLE_RADII[previous_course + 2]
+
+        self.grow_a = float(self.grow_radius - self.target_radius)
+        self.grow_a /= (self.PAUSE_LAST - self.GROW_LAST) ** 2
 
 
 class PlayScreen:
@@ -289,6 +360,7 @@ class PlayScreen:
     def reset_level(self, slowmo=False):
         self.balls = [copy.deepcopy(self.start_ball)]
         self.player = self.balls[0]
+        self.player.point_towards_end(self.level)
         columns = levels.WIDTH
         rows = levels.HEIGHT
         self.level.pressed_grid = [[False] * rows for _ in range(columns)]
@@ -529,7 +601,7 @@ def level_menu_transition():
 
     transition.init_general(from_point, to_point, color)
     transition.type = transition.LEVEL_TO_MENU
-    main_menu.draw(transition.new_surface, False)
+    main_menu.draw(transition.new_surface)
 
     play_screen.level_num += 1
 
@@ -573,6 +645,7 @@ while True:
 
             if check_level_menu_transition():
                 level_menu_transition()
+                main_menu.init_grow_course()
             else:
                 next_level_transition()
 
@@ -589,6 +662,7 @@ while True:
         main_menu.draw(final_display)
         if main_menu.switch_to_level:
             main_menu.switch_to_level = False
+            main_menu.mouse_level = -1
             current_screen = TRANSITION
 
             menu_level_transition()
@@ -609,6 +683,11 @@ while True:
 
     debug.debug(clock.get_fps())
     debug.debug(current_screen)
+    debug.debug(main_menu.grow_frame)
+    debug.debug(main_menu.mouse_level)
     debug.draw(final_display)
 
+    # if events.mouse.held:
+    #     screen_update(2)
+    # else:
     screen_update(60)
