@@ -279,7 +279,7 @@ class MainMenu:
             for level_num, level_string in enumerate(level_array):
                 this_level = levels.string_to_level(level_string)
 
-                new_button = level_button((20, y), this_level, level_num)
+                new_button = level_button((20, y), this_level, level_num + 1)
                 if not self.level_on_current_page(level_num):
                     new_button.hidden = True
                 self.buttons.add(new_button)
