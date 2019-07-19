@@ -256,6 +256,8 @@ class PlayScreen:
     SLOWMO_MAX = 8.0  # the largest factor of slowmo possible
     SPEEDUP_FACTOR = 0.05  # how much the slowmo effect "wears off" each frame
 
+    AIMER_LAYERS = 4
+
     def __init__(self):
         self.level = None
         self.slowmo_factor = 1.0  # the coefficient of time-slow.
@@ -354,8 +356,30 @@ class PlayScreen:
 
         graphics.draw_ripples(surface)
 
+        if events.mouse.held and self.player.shell_type != ball.CENTER:
+            self.draw_aimer(surface)
+
         for ball_ in self.balls:
             ball_.draw_debug(surface, TOP_LEFT)
+
+    def draw_aimer(self, surface):
+        angle1 = geometry.angle_between(events.mouse.position, self.player.position)
+        angle2 = angle1 + math.pi
+
+        width = 2
+        color = ball.SHELL_DEBUG_COLORS[self.player.shell_type]
+        for layer in range(self.AIMER_LAYERS, 0, -1):
+            magnitude = self.player.radius + layer ** 2
+
+            diff1 = geometry.vector_to_difference(angle1, magnitude)
+            diff2 = geometry.vector_to_difference(angle2, magnitude)
+            point1 = (diff1[0] + self.player.x, diff1[1] + self.player.y)
+            point2 = (diff2[0] + self.player.x, diff2[1] + self.player.y)
+            point1 = graphics.screen_position(point1)
+            point2 = graphics.screen_position(point2)
+            pygame.draw.line(surface, color, point1, point2, width)
+
+            width += 2
 
     def reset_level(self, slowmo=False):
         self.balls = [copy.deepcopy(self.start_ball)]
