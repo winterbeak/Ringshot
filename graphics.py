@@ -9,6 +9,33 @@ import geometry
 pygame.init()
 
 
+LEFT = 1
+UP = 2
+RIGHT = 3
+DOWN = 4
+
+
+def draw_arrow(surface, color, rect, direction, width=0):
+    """Draws a triangle that fits into the rect, pointing in the given
+    direction.
+    """
+    x, y, w, h = rect
+
+    # points start from the tip of the arrow, and travel clockwise
+    if direction == LEFT:
+        points = ((x, y + h / 2), (x + w, y), (x + w, y + h))
+    elif direction == UP:
+        points = ((x + w / 2, y), (x + w, y + h), (x, y + h))
+    elif direction == RIGHT:
+        points = ((x + w, y + h / 2), (x, y + h), (x, y))
+    elif direction == DOWN:
+        points = ((x + w / 2, y + h), (x, y), (x + w, y))
+    else:
+        return
+
+    pygame.draw.polygon(surface, color, points, width)
+
+
 def screen_position(position):
     """All calculations are from (0, 0), while all drawing is done
     from SCREEN_TOP_LEFT.  This converts a calculated position to a drawable

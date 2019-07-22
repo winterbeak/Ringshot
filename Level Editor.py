@@ -62,10 +62,10 @@ class Button:
 
 
 class ButtonSet:
-    ARROW_LEFT = 0
-    ARROW_UP = 1
-    ARROW_RIGHT = 2
-    ARROW_DOWN = 3
+    ARROW_LEFT = graphics.LEFT
+    ARROW_UP = graphics.UP
+    ARROW_RIGHT = graphics.RIGHT
+    ARROW_DOWN = graphics.DOWN
 
     def __init__(self):
         self.buttons = []
@@ -132,17 +132,8 @@ class ButtonSet:
     def draw_arrow(self, button_id, direction):
         surface = self.buttons[button_id].sprite
 
-        if direction == self.ARROW_LEFT:
-            points = ((5, 15), (25, 5), (25, 25))
-        elif direction == self.ARROW_UP:
-            points = ((15, 5), (5, 25), (25, 25))
-        elif direction == self.ARROW_RIGHT:
-            points = ((25, 15), (5, 5), (5, 25))
-        elif direction == self.ARROW_DOWN:
-            points = ((15, 25), (5, 5), (25, 5))
-        else:
-            return
-        pygame.draw.polygon(surface, constants.WHITE, points)
+        rect = (5, 5, 20, 20)
+        graphics.draw_arrow(surface, constants.WHITE, rect, direction)
 
 
 def small_button(position):

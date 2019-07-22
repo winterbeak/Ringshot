@@ -376,10 +376,6 @@ def is_ground(tile_type):
 
 
 class Layer:
-    THUMBNAIL_TILE = 2
-    THUMBNAIL_WIDTH = THUMBNAIL_TILE * WIDTH
-    THUMBNAIL_HEIGHT = THUMBNAIL_TILE * HEIGHT
-
     def __init__(self):
         self.grid = [[EMPTY] * HEIGHT for _ in range(WIDTH)]
 
@@ -402,16 +398,16 @@ class Layer:
 
         return COLUMN_SEPARATOR.join(column_strings)
 
-    def draw_thumbnail(self, surface, position):
+    def draw_thumbnail(self, surface, position, color=constants.WHITE, size=2):
         """Draws a small thumbnail of the layer."""
         start_x, start_y = position
         for column in range(WIDTH):
             for row in range(HEIGHT):
                 if self.tile_at((column, row)) != EMPTY:
-                    x = start_x + column * self.THUMBNAIL_TILE
-                    y = start_y + row * self.THUMBNAIL_TILE
-                    rect = (x, y, self.THUMBNAIL_TILE, self.THUMBNAIL_TILE)
-                    surface.fill(constants.WHITE, rect)
+                    x = start_x + column * size
+                    y = start_y + row * size
+                    rect = (x, y, size, size)
+                    surface.fill(color, rect)
 
     def change_tile(self, tile_id, tile_position):
         """Changes the tile at tile_position to tile_id.
