@@ -53,13 +53,15 @@ def new_surface(size):
     return surface
 
 
-def load_image(path):
+def load_image(path, multiplier=1):
     image = pygame.image.load(os.path.join("images", path + ".png"))
-    width = image.get_width() * constants.PIXEL
-    height = image.get_height() * constants.PIXEL
-    resized = pygame.transform.scale(image, (width, height))
-    resized.convert()
-    return resized
+    if multiplier > 1:
+        width = image.get_width() * multiplier
+        height = image.get_height() * multiplier
+        image = pygame.transform.scale(image, (width, height))
+    image.convert()
+    image.set_colorkey(constants.TRANSPARENT)
+    return image
 
 
 def border(surface, color, thickness):
@@ -120,15 +122,17 @@ shaker = Shaker()
 
 class Spritesheet:
     """Stores a spritesheet made of all of a thing's animations."""
-    def __init__(self, sheet_path, frame_w, frame_h, frame_counts):
+    def __init__(self, sheet_path, frame_w, frame_h, frame_counts, multiplier=1):
         self.surface = load_image(sheet_path)
+        self.full_w = self.surface.get_width() * multiplier
+        self.full_h = self.surface.get_height() * multiplier
+        if multiplier > 1:
+            dimensions = self.full_w, self.full_h
+            self.surface = pygame.transform.scale(self.surface, (dimensions))
         self.surface.set_colorkey(constants.TRANSPARENT)
 
-        self.full_w = self.surface.get_width()
-        self.full_h = self.surface.get_height()
-
-        self.frame_w = constants.PIXEL*frame_w
-        self.frame_h = constants.PIXEL*frame_h
+        self.frame_w = multiplier * frame_w
+        self.frame_h = multiplier * frame_h
         self.anim_count = int(self.full_w / frame_w)
         self.frame_counts = frame_counts
         self.z_height = 0

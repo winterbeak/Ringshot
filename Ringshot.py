@@ -52,6 +52,9 @@ save_data.close()
 LEVELS_PER_COURSE = 18
 
 LEVEL_FONT = graphics.load_image("level_numbers")
+logo_name = graphics.load_image("name", 4)
+logo_bird_sprite = graphics.Spritesheet("logo", 10, 10, (11,), 4)
+logo_bird = graphics.SpriteInstance(logo_bird_sprite)
 
 
 def render_level_number(number):
@@ -87,6 +90,13 @@ class MenuScreen:
 
     LEFT = 1
     RIGHT = 2
+
+    LOGO_WIDTH = 284
+    LOGO_HEIGHT = 52
+    LOGO_BIRD_X = (FULL_WIDTH - LOGO_WIDTH) // 2
+    LOGO_BIRD_Y = FULL_HEIGHT - 100
+    LOGO_NAME_X = LOGO_BIRD_X + 64
+    LOGO_NAME_Y = LOGO_BIRD_Y - 12
 
     def __init__(self):
         self.arrow_y_offset = 0.0
@@ -181,6 +191,8 @@ class MenuScreen:
                 self.changing_page = False
                 self.page = self.next_page
 
+        logo_bird.delay_next(10)
+
     def draw(self, surface):
         """Set level_hover to false if you don't want to draw the level
         being hovered over.
@@ -203,12 +215,14 @@ class MenuScreen:
 
                 graphics.draw_arrow(surface, color, (x, y, w, h), direction)
 
-        # Level select
         if self.PAUSE_LAST < self.grow_frame <= self.GROW_LAST:
             shake_x = random.randint(-2, 2)
             shake_y = random.randint(-2, 2)
             self.draw_level_select(surface, shake_x, shake_y)
+
         elif self.changing_page:
+
+            # Level select page
             if self.page == self.LEVEL_SELECT:
                 if self.page_direction == self.LEFT:
                     x = self.x_offset + FULL_WIDTH
@@ -218,8 +232,20 @@ class MenuScreen:
 
             elif self.next_page == self.LEVEL_SELECT:
                 self.draw_level_select(surface, int(self.x_offset))
+
+            # Credits page
+            if self.page == self.CREDITS:
+                x = self.x_offset - FULL_WIDTH
+                self.draw_credits_options(surface, int(x))
+
+            elif self.next_page == self.CREDITS:
+                x = self.x_offset
+                self.draw_credits_options(surface, int(x))
+
         elif self.page == self.LEVEL_SELECT:
             self.draw_level_select(surface)
+        elif self.page == self.CREDITS:
+            self.draw_credits_options(surface)
 
     def draw_level_select(self, surface, x_offset=0, y_offset=0):
         last_level = last_unlocked
@@ -280,6 +306,15 @@ class MenuScreen:
                     layer.draw_thumbnail(surface, (x, y), constants.BLACK, 3)
 
             surface.blit(text, (text_x, text_y))
+
+    def draw_credits_options(self, surface, x_offset=0, y_offset=0):
+        x = self.LOGO_BIRD_X + x_offset
+        y = self.LOGO_BIRD_Y + y_offset
+        surface.blit(logo_bird.get_now_frame(), (x, y))
+
+        x = self.LOGO_NAME_X + x_offset
+        y = self.LOGO_NAME_Y + y_offset
+        surface.blit(logo_name, (x, y))
 
     def level_center(self, level_num):
         course_num = level_num // LEVELS_PER_COURSE
@@ -375,7 +410,7 @@ class PlayScreen:
         self.level = None
         self.slowmo_factor = 1.0  # the coefficient of time-slow.
         self.balls = []
-        self.player = None
+        self.players = []
         self.start_ball = None
         self.level_num = 0
 
@@ -397,7 +432,7 @@ class PlayScreen:
         mouse.position = (new_x, new_y)
         keys = events.keys
 
-        if mouse.held and self.player.containing_shells:
+        if mouse.held and self.players[0].containing_shells:
             if mouse.clicked:
                 self.slowmo_factor = self.SLOWMO_MAX
 
@@ -407,9 +442,10 @@ class PlayScreen:
                 if self.slowmo_factor < 1.0:
                     self.slowmo_factor = 1.0
 
-            self.player.rotate_towards(mouse.position, self.slowmo_factor)
+            for player in self.players:
+                player.rotate_towards(mouse.position, self.slowmo_factor)
 
-        if mouse.released and self.player.containing_shells:
+        if mouse.released and self.players[0].containing_shells:
             self.shoot_ball(mouse.position)
             self.slowmo_factor = 1.0
 
@@ -443,25 +479,42 @@ class PlayScreen:
 
     def shoot_ball(self, position):
         """Shoots a ball towards a specified position."""
-        old_ball = self.player
+        add_balls = []
+        remove_balls = []
+        for player in self.players:
+            old_ball = player
 
-        new_radius = self.player.radius - ball.SHELL_WIDTH
-        new_shell = old_ball.containing_shells[0]
-        new_ball = ball.Ball(self.player.position, new_radius, new_shell)
+            new_radius = player.radius - ball.SHELL_WIDTH
+            new_shell = old_ball.containing_shells[0]
+            new_ball = ball.Ball(player.position, new_radius, new_shell)
 
-        new_ball.is_player = True
-        old_ball.is_player = False
+            new_ball.is_player = True
 
-        new_ball.angle = old_ball.angle
-        new_ball.containing_shells = old_ball.containing_shells[1:]
-        old_ball.containing_shells = []
+            new_ball.angle = old_ball.angle
+            new_ball.containing_shells = old_ball.containing_shells[1:]
 
-        self.player = new_ball
-        self.balls.append(new_ball)
+            if old_ball.shell_type == ball.CLONE:
+                old_ball.shell_type = old_ball.containing_shells[0]
+                old_ball.containing_shells = old_ball.containing_shells[1:]
+                old_ball.radius = new_radius
 
-        self.player.launch_towards(position)
-        old_ball.x_velocity = -self.player.x_velocity
-        old_ball.y_velocity = -self.player.y_velocity
+            else:
+                old_ball.is_player = False
+                old_ball.containing_shells = []
+                remove_balls.append(old_ball)
+
+            add_balls.append(new_ball)
+
+            new_ball.launch_towards(position)
+            old_ball.x_velocity = -new_ball.x_velocity
+            old_ball.y_velocity = -new_ball.y_velocity
+
+        for player in remove_balls:
+            self.players.remove(player)
+
+        for player in add_balls:
+            self.players.append(player)
+            self.balls.append(player)
 
     def draw(self, surface):
         surface.blit(self.block_surface, TOP_LEFT)
@@ -469,35 +522,37 @@ class PlayScreen:
 
         graphics.draw_ripples(surface)
 
-        if events.mouse.held and self.player.shell_type != ball.CENTER:
-            self.draw_aimer(surface)
+        if events.mouse.held and self.players[0].containing_shells:
+            self.draw_aimers(surface)
 
         for ball_ in self.balls:
             ball_.draw_debug(surface, TOP_LEFT)
 
-    def draw_aimer(self, surface):
-        angle1 = geometry.angle_between(events.mouse.position, self.player.position)
-        angle2 = angle1 + math.pi
+    def draw_aimers(self, surface):
+        mouse_position = events.mouse.position
+        for player in self.players:
+            angle1 = geometry.angle_between(mouse_position, player.position)
+            angle2 = angle1 + math.pi
 
-        width = 2
-        color = ball.SHELL_DEBUG_COLORS[self.player.shell_type]
-        for layer in range(self.AIMER_LAYERS, 0, -1):
-            magnitude = self.player.radius + layer ** 2
+            width = 2
+            color = ball.SHELL_DEBUG_COLORS[player.shell_type]
+            for layer in range(self.AIMER_LAYERS, 0, -1):
+                magnitude = player.radius + layer ** 2
 
-            diff1 = geometry.vector_to_difference(angle1, magnitude)
-            diff2 = geometry.vector_to_difference(angle2, magnitude)
-            point1 = (diff1[0] + self.player.x, diff1[1] + self.player.y)
-            point2 = (diff2[0] + self.player.x, diff2[1] + self.player.y)
-            point1 = graphics.screen_position(point1)
-            point2 = graphics.screen_position(point2)
-            pygame.draw.line(surface, color, point1, point2, width)
+                diff1 = geometry.vector_to_difference(angle1, magnitude)
+                diff2 = geometry.vector_to_difference(angle2, magnitude)
+                point1 = (diff1[0] + player.x, diff1[1] + player.y)
+                point2 = (diff2[0] + player.x, diff2[1] + player.y)
+                point1 = graphics.screen_position(point1)
+                point2 = graphics.screen_position(point2)
+                pygame.draw.line(surface, color, point1, point2, width)
 
-            width += 2
+                width += 2
 
     def reset_level(self, slowmo=False):
         self.balls = [copy.deepcopy(self.start_ball)]
-        self.player = self.balls[0]
-        self.player.point_towards_end(self.level)
+        self.players = [self.balls[0]]
+        self.players[0].point_towards_end(self.level)
         columns = levels.WIDTH
         rows = levels.HEIGHT
         self.level.pressed_grid = [[False] * rows for _ in range(columns)]
@@ -714,7 +769,7 @@ def next_level_transition():
 
     play_screen.load_level(play_screen.level_num + 1)
     level = play_screen.level
-    new_ball = play_screen.player
+    new_ball = play_screen.players[0]
 
     transition.init_point_to_level(old_position, level, new_ball, color)
 
@@ -726,7 +781,7 @@ def menu_level_transition():
 
     play_screen.load_level(level_num)
     level = play_screen.level
-    new_ball = play_screen.player
+    new_ball = play_screen.players[0]
 
     transition.init_point_to_level(old_position, level, new_ball, color)
 

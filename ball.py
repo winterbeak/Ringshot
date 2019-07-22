@@ -7,15 +7,19 @@ import constants
 import geometry
 import levels
 import graphics
-import debug
+# import debug
 
 # each "layer" of the ball is called a shell.
-SHELL_TYPES = 2
+SHELL_TYPES = 4
 CENTER = 0  # the ball at the very center, cannot be shot
 NORMAL = 1  # the normal, 100% tangible shell type
 GHOST = 2  # the paranormal, 0% tangible shell type
+FLOAT = 3  # the futuristic, 0% gravity shell type
+CLONE = 4  # the frankly kinda odd, 200% shell type
 SHELL_DEBUG_COLORS = (constants.WHITE, constants.MAGENTA, constants.GREEN,
                       constants.ORANGE, constants.CYAN)
+
+MAX_SHELLS = 10
 
 SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
@@ -23,8 +27,8 @@ SHELL_WIDTH = 2
 
 bounce_notes = ["a1", "b1", "c#2", "d2", "e2", "f#2",
                 "g2", "a2", "b2", "c#3", "e3"]
-sound_bounce = sound.load_strings("bounce%s", bounce_notes)
-sound_bounce.set_sound_limit(4, 30)
+sound_normal = sound.load_strings("bounce%s", bounce_notes)
+sound_normal.set_sound_limit(4, 30)
 
 sound_button = sound.load_numbers("button%i", 3)
 
@@ -60,6 +64,7 @@ class Ball:
         # specifically, bounce_decay measures what percentage of the initial
         # speed is kept after bouncing.
         self.NORMAL_BOUNCE_DECAY = bounce_decay
+        self.FLOATING_BOUNCE_DECAY = min(0.9, self.NORMAL_BOUNCE_DECAY + 0.2)
         self.x_bounce_decay = bounce_decay
         self.y_bounce_decay = bounce_decay
 
@@ -116,7 +121,7 @@ class Ball:
             blip_y = int(self.y + blip_distance[1] + screen_top_left[1])
             surface.fill(self.BLIP_COLOR, (blip_x, blip_y, 2, 2))
 
-    def draw_debug_arc(self, surface, screen_top_left=(0, 0), shells = 0):
+    def draw_debug_arc(self, surface, screen_top_left=(0, 0), shells=0):
         """Draws the shells as arcs rather than circles (so that they have
         an opening on one side to 'shoot' the ball out of).  Doesn't
         look as good because the arcs don't fill well, so this doesn't
@@ -182,7 +187,10 @@ class Ball:
 
         slowmo_factor is how much the ball slows down due to slowmo.
         """
-        self.y_acceleration = constants.GRAVITY
+        if not self.is_player and self.shell_type == FLOAT:
+            self.y_acceleration = 0.0
+        else:
+            self.y_acceleration = constants.GRAVITY
 
         distance_x = self.x_velocity / slowmo_factor
         distance_y = self.y_velocity / slowmo_factor
@@ -192,6 +200,11 @@ class Ball:
         self.y_velocity += self.y_acceleration / slowmo_factor
 
         self.angle += self.angular_velocity / slowmo_factor
+
+        if not self.is_player and self.shell_type == FLOAT:
+            self.x_velocity *= 0.99
+            self.y_velocity *= 0.99
+            self.angular_velocity *= 0.98
 
     def next_position(self, slowmo_factor=1.0):
         """Returns the expected position on the next frame, without
@@ -277,7 +290,6 @@ class Ball:
 
                 self.update_angular_velocity(perpendicular)
 
-
                 # velocity stuff
                 # y is negative since up is negative and down is positive!
                 # pygame sure is weird.
@@ -289,17 +301,26 @@ class Ball:
 
                 magnitude = geometry.magnitude((new_velocity_x, new_velocity_y))
 
-                if magnitude > 3.0:
-                    self.ripple(magnitude * 4)
-                    volume = (magnitude - 3.0) / 5.0 + 0.2
-                    sound_bounce.play_random(volume, self.is_player)
+                if self.is_player or self.shell_type == NORMAL:
+                    if magnitude > 3.0:
+                        self.ripple(magnitude * 4.0)
+                        volume = (magnitude - 3.0) / 5.0 + 0.2
+
+                        sound_normal.play_random(volume, self.is_player)
+
+                elif self.shell_type == FLOAT:
+                    self.ripple(magnitude * 4.0)
 
                 break
 
         # self.update_grounded(level)
-        if abs(self.y_velocity) < self.GROUNDED_THRESHOLD:
+        floating = not (self.is_player or self.shell_type != FLOAT)
+        if not floating and abs(self.y_velocity) < self.GROUNDED_THRESHOLD:
             self.x_bounce_decay = 0.95
             self.y_bounce_decay = self.y_velocity / 2
+        elif floating:
+            self.x_bounce_decay = self.FLOATING_BOUNCE_DECAY
+            self.y_bounce_decay = self.FLOATING_BOUNCE_DECAY
         else:
             self.x_bounce_decay = self.NORMAL_BOUNCE_DECAY
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
@@ -314,8 +335,9 @@ class Ball:
             self.ghost_ripple_timer += 1.0 / slowmo_factor
 
     def out_of_bounds(self):
-        if -200 <= self.x < constants.SCREEN_WIDTH + 200:
-            if -200 <= self.y < constants.SCREEN_HEIGHT + 200:
+        position = graphics.screen_position(self.position)
+        if -100 <= position[0] < constants.FULL_WIDTH + 100:
+            if -100 <= position[1] < constants.FULL_HEIGHT + 100:
                 return False
         return True
 

@@ -420,17 +420,19 @@ class Editor:
                 return
 
             elif mouse_button == self.ADD_SHELL:
-                self.add_shell()
+                if len(self.level.start_shells) <= ball.MAX_SHELLS:
+                    self.add_shell()
             elif mouse_button == self.REMOVE_SHELL:
-                self.remove_shell()
+                if len(self.level.start_shells) > 1:
+                    self.remove_shell()
             elif mouse_button >= self.FIRST_SHELL_BUTTON:
                 shell_num = (mouse_button - self.FIRST_SHELL_BUTTON) // 2 + 1
 
                 # checks if it's a left or right button
                 if (mouse_button - self.FIRST_SHELL_BUTTON) % 2:
-                    self.shell_left(shell_num)
-                else:
                     self.shell_right(shell_num)
+                else:
+                    self.shell_left(shell_num)
 
             if self.selected_single_place():
                 if self.selected_tile == levels.BLOCKS_START:
@@ -544,9 +546,8 @@ class Editor:
         self.update_shell_picker(self.ui_surface)
 
     def remove_shell(self):
-        if len(self.level.start_shells) > 1:
-            self.level.start_shells.pop(0)
-            self.update_shell_picker(self.ui_surface)
+        self.level.start_shells.pop(0)
+        self.update_shell_picker(self.ui_surface)
 
     def shell_left(self, shell_num):
         index = len(self.level.start_shells) - 1 - shell_num
