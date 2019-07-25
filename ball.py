@@ -202,9 +202,9 @@ class Ball:
         self.angle += self.angular_velocity / slowmo_factor
 
         if not self.is_player and self.shell_type == FLOAT:
-            self.x_velocity *= 0.99
-            self.y_velocity *= 0.99
-            self.angular_velocity *= 0.98
+            self.x_velocity *= 0.993 + min(0.0065, 0.0015 * slowmo_factor)
+            self.y_velocity *= 0.993 + min(0.0065, 0.0015 * slowmo_factor)
+            self.angular_velocity *= 0.98 + min(0.01, 0.00075 * slowmo_factor)
 
     def next_position(self, slowmo_factor=1.0):
         """Returns the expected position on the next frame, without

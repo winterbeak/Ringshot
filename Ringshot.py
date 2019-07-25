@@ -420,6 +420,7 @@ class PlayScreen:
         self.start_position = constants.SCREEN_MIDDLE
         self.end_open = False
 
+        self.pause_exit = False
         self.transition = False
         self.end_ball = None
 
@@ -431,6 +432,10 @@ class PlayScreen:
         new_y = mouse.position[1] - SCREEN_TOP
         mouse.position = (new_x, new_y)
         keys = events.keys
+
+        if mouse.released and self.players[0].containing_shells:
+            self.shoot_balls(mouse.position)
+            self.slowmo_factor = 1.0
 
         if mouse.held and self.players[0].containing_shells:
             if mouse.clicked:
@@ -445,15 +450,16 @@ class PlayScreen:
             for player in self.players:
                 player.rotate_towards(mouse.position, self.slowmo_factor)
 
-        if mouse.released and self.players[0].containing_shells:
-            self.shoot_ball(mouse.position)
-            self.slowmo_factor = 1.0
-
         if keys.pressed_key == pygame.K_r:
             if mouse.held:
                 self.reset_level(True)
             else:
                 self.reset_level(False)
+
+        elif keys.pressed_key == pygame.K_ESCAPE:
+            self.transition = True
+            self.pause_exit = True
+            self.end_ball = self.players[0]
 
         ball_index = len(self.balls)
         for ball_ in reversed(self.balls):
@@ -477,8 +483,8 @@ class PlayScreen:
 
         graphics.update_ripples(self.slowmo_factor)
 
-    def shoot_ball(self, position):
-        """Shoots a ball towards a specified position."""
+    def shoot_balls(self, position):
+        """Shoots all player balls towards a specific position."""
         add_balls = []
         remove_balls = []
         for player in self.players:
@@ -799,6 +805,9 @@ def level_menu_transition():
 
 
 def check_level_menu_transition():
+    if play_screen.pause_exit:
+        return True
+
     if play_screen.level_num + 1 == last_unlocked:
         if last_unlocked % LEVELS_PER_COURSE == 0:
             return True
@@ -836,24 +845,32 @@ while True:
             current_screen = TRANSITION
 
             if check_level_menu_transition():
-                if play_screen.level_num == LAST_LEVEL:
-                    main_menu.page = main_menu.CREDITS
+                if play_screen.pause_exit:
+                    main_menu.page = main_menu.LEVEL_SELECT
                     level_menu_transition()
 
                 else:
-                    main_menu.page = main_menu.LEVEL_SELECT
-                    level_menu_transition()
-                    main_menu.init_grow_course()
+                    if play_screen.level_num == LAST_LEVEL:
+                        main_menu.page = main_menu.CREDITS
+                        level_menu_transition()
+
+                    else:
+                        main_menu.page = main_menu.LEVEL_SELECT
+                        level_menu_transition()
+                        main_menu.init_grow_course()
             else:
                 next_level_transition()
 
-            sound.play(ball.end_note, 0.6)
+            if not play_screen.pause_exit:
+                sound.play(ball.end_note, 0.6)
 
-            if last_unlocked < play_screen.level_num + 1:
-                last_unlocked = play_screen.level_num + 1
-                save_data = open("Easily Editable Save Data.txt", 'w')
-                save_data.write(str(last_unlocked) + "\n")
-                save_data.close()
+                if last_unlocked < play_screen.level_num + 1:
+                    last_unlocked = play_screen.level_num + 1
+                    save_data = open("Easily Editable Save Data.txt", 'w')
+                    save_data.write(str(last_unlocked) + "\n")
+                    save_data.close()
+            else:
+                play_screen.pause_exit = False
 
     elif current_screen == MENU:
         main_menu.update()

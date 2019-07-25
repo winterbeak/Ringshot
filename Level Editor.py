@@ -196,8 +196,10 @@ class MainMenu:
         self.buttons.update()
         if events.mouse.released:
             if self.buttons.touch_mouse == self.ADD:
-                levels.make_new_level()
-                self.change_page(self.last_page)
+                if self.selected_level_button == -1:
+                    levels.make_new_level(levels.count_levels())
+                else:
+                    levels.make_new_level(self.selected_level() + 1)
                 self.update_level_buttons()
 
             elif self.buttons.touch_mouse == self.UP:

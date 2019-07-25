@@ -59,16 +59,16 @@ COLUMN_SEPARATOR = '\n'  # character that separates each column in the level
 TILE_SEPARATOR = ' '     # character that separates each tile in the column
 
 
-def make_new_level():
+def make_new_level(index):
     """Appends a new, completely empty level at the end of levels.txt."""
-    if count_levels() == 0:  # There is no separator before the first level.
-        string = ""
-    else:
-        string = LEVEL_SEPARATOR
+    file = open("levels.txt", 'r')
+    level_array = file.read().split(LEVEL_SEPARATOR)
+    file.close()
 
-    string += Level().to_string()
+    level_array.insert(index, Level().to_string())
+    string = LEVEL_SEPARATOR.join(level_array)
 
-    file = open("levels.txt", 'a')
+    file = open("levels.txt", 'w')
     file.write(string)
     file.close()
 
