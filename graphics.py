@@ -269,10 +269,11 @@ class Ripple:
 
         self.radius += self.expansion_rate / slowmo
 
-    def draw(self, surface):
+    def draw(self, surface, offset=(0, 0)):
+        position = (self.position[0] + offset[0], self.position[1] + offset[1])
         radius = int(self.radius)
         width = int(self.width)
-        pygame.draw.circle(surface, self.color, self.position, radius, width)
+        pygame.draw.circle(surface, self.color, position, radius, width)
 
 
 def create_ripple(position, color, final_radius=60, expansion_rate=2.0):
@@ -289,9 +290,9 @@ def update_ripples(slowmo=1.0):
             del ripples[ripple_num]
 
 
-def draw_ripples(surface):
+def draw_ripples(surface, offset=(0, 0)):
     for ripple in ripples:
-        ripple.draw(surface)
+        ripple.draw(surface, offset)
 
 
 def clear_ripples():
