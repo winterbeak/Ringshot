@@ -4,8 +4,6 @@ import pygame
 import random
 import os
 
-import constants
-
 music_muted = False
 sfx_muted = False
 
@@ -17,8 +15,37 @@ pygame.init()
 channels = [pygame.mixer.Channel(channel) for channel in range(CHANNEL_COUNT)]
 soundsets = []
 
+note_strings = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
+A2 = 0  # 3 for the third octave on the piano
+AS2 = 1  # S stands for Sharp, so AS is A-Sharp
+B2 = 2
+C2 = 3
+CS2 = 4
+D2 = 5
+DS2 = 6
+E2 = 7
+F2 = 8
+FS2 = 9
+G2 = 10
+GS2 = 11
+A3 = 12
+AS3 = 13
+B3 = 14
+C3 = 15
+CS3 = 16
+D3 = 17
+DS3 = 18
+E3 = 19
+F3 = 20
+FS3 = 21
+G3 = 22
+GS3 = 23
+
+normal_scale = None
+
 
 def update():
+    global normal_scale
     for soundset in soundsets:
         if soundset.limited:
             for i in reversed(range(len(soundset.durations))):
@@ -26,6 +53,28 @@ def update():
                     del soundset.durations[i]
                 else:
                     soundset.durations[i] -= 1
+
+    chord = (pygame.mixer.music.get_pos() % music_length) // chord_length
+    if chord == 0:
+        normal_scale = normal_fs_major
+    elif chord == 1:
+        normal_scale = normal_b_major
+    elif chord == 2:
+        normal_scale = normal_fs_aeolian
+    elif chord == 3:
+        normal_scale = normal_ds_dorian
+
+
+def load_music(path):
+    pygame.mixer.music.load(pathify(path))
+
+
+def play_music():
+    pygame.mixer.music.play(-1)
+
+
+def set_music_volume(volume):
+    pygame.mixer.music.set_volume(volume)
 
 
 def pathify(string):
@@ -77,14 +126,7 @@ class SoundSet:
         self.durations = []
         self.sound_duration = 0
 
-    def play(self, sound_id, volume=1.0):
-        play(self.sounds[sound_id], volume)
-        self.lastPlayed = sound_id
-
-        if self.limited:
-            self.durations.append(self.sound_duration)
-
-    def play_random(self, volume=1.0, force_play=False):
+    def play(self, sound_id, volume=1.0, force_play=False):
         if not force_play:
             if sfx_muted:
                 return
@@ -99,6 +141,13 @@ class SoundSet:
         if volume > 1.0:
             volume = 1.0
 
+        play(self.sounds[sound_id], volume)
+        self.lastPlayed = sound_id
+
+        if self.limited:
+            self.durations.append(self.sound_duration)
+
+    def play_random(self, volume=1.0, force_play=False):
         if self.variants == 1:
             sound_id = 0
         else:
@@ -106,13 +155,13 @@ class SoundSet:
             while sound_id == self.lastPlayed:
                 sound_id = random.randint(0, self.variants - 1)
 
-        self.play(sound_id, volume)
+        self.play(sound_id, volume, force_play)
 
     def set_volumes(self, volume):
         for sound in self.sounds:
             sound.set_volume(volume)
 
-    def set_sound_limit(self, limit, sound_duration):
+    def set_sound_limit(self, limit, sounds_length):
         """Limits the amount of sounds the soundset can play at once.
 
         sound_duration is an approximation of the sound's lenght in frames.
@@ -121,4 +170,60 @@ class SoundSet:
         """
         self.limited = True
         self.limit = limit
-        self.sound_duration = sound_duration
+        self.sound_duration = sounds_length
+
+
+class Scale:
+    def __init__(self, instrument, notes):
+        self.instrument = instrument
+        self.notes = notes
+        self.octaves = len(soundsets)
+
+    def play_tonic(self, volume=1.0, force_play=False):
+        """Plays the first note in the scale."""
+        note = self.notes[0]
+        soundset = self.instrument.octaves[note // 12]
+        note %= 12
+        soundset.play(note, volume, force_play)
+
+    def play_random(self, volume=1.0, force_play=False):
+        note = random.choice(self.notes)
+        soundset = self.instrument.octaves[note // 12]
+        note %= 12
+        soundset.play(note, volume, force_play)
+
+
+class Instrument:
+    def __init__(self, octave_strings):
+        """octave_strings is a list of strings, each of which will load
+        12 sounds, one per each note.  Make sure that each string includes one
+        format modifier (the "%s", indicating where the note part of the
+        file name is)
+        """
+        self.octaves = []
+        for string in octave_strings:
+            self.octaves.append(load_strings(string, note_strings))
+        self.octave_count = len(self.octaves)
+
+    def set_limits(self, limit, sound_length):
+        """Sets the limit of how many sounds each octave can play at
+        once.  sound_length is in frames.
+        """
+        for octave in self.octaves:
+            octave.set_sound_limit(limit, sound_length)
+
+
+load_music("test_music")
+set_music_volume(0.3)
+music_length = 16000  # music track length in milliseconds
+chord_length = 4000  # chord length in milliseconds
+play_music()
+
+
+normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
+normal_instrument.set_limits(4, 15)
+# these scale names may or may not be accurate
+normal_fs_major = Scale(normal_instrument, (FS2, GS2, AS3, B3, CS3, DS3, F3))
+normal_b_major = Scale(normal_instrument, (B2, CS2, DS2, E2, FS2, GS2, AS3))
+normal_fs_aeolian = Scale(normal_instrument, (FS2, GS2, A3, B3, CS3, D3, E3))
+normal_ds_dorian = Scale(normal_instrument, (DS2, F2, FS2, GS2, AS3, C3, CS3))

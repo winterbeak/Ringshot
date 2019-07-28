@@ -197,6 +197,9 @@ class MenuScreen:
 
         logo_bird.delay_next(10)
 
+        if events.keys.pressed_key == pygame.K_ESCAPE:
+            events.quit_program()
+
     def draw(self, surface, position=(0, 0)):
         """Set level_hover to false if you don't want to draw the level
         being hovered over.
@@ -887,6 +890,7 @@ current_screen = MENU
 while True:
     events.update()
     sound.update()
+    debug.debug(pygame.mixer.music.get_pos())
 
     if current_screen == PLAY:
         play_screen.update()
@@ -914,7 +918,8 @@ while True:
                 transition.init_level_to_level()
 
             if not play_screen.pause_exit:
-                sound.play(ball.end_note, 0.6)
+                if play_screen.end_ball.shell_type == ball.NORMAL:
+                    sound.normal_scale.play_tonic(0.8, True)
 
                 if last_unlocked < play_screen.level_num + 1:
                     last_unlocked = play_screen.level_num + 1

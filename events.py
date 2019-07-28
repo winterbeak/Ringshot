@@ -18,6 +18,11 @@ class KeyHandler:
         self.pressed_key = None
 
 
+def quit_program():
+    pygame.quit()
+    sys.exit()
+
+
 def update():
     mouse.clicked = False
     mouse.released = False
@@ -38,8 +43,7 @@ def update():
             keys.pressed_key = event.key
 
         elif event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+            quit_program()
 
 
 mouse = MouseHandler()

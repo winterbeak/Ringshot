@@ -24,15 +24,7 @@ MAX_SHELLS = 10
 SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
 
-
-bounce_notes = ["a1", "b1", "c#2", "d2", "e2", "f#2",
-                "g2", "a2", "b2", "c#3", "e3"]
-sound_normal = sound.load_strings("bounce%s", bounce_notes)
-sound_normal.set_sound_limit(4, 30)
-
 sound_button = sound.load_numbers("button%i", 3)
-
-end_note = sound.load("bounced3")
 
 
 def first_ball_radius(level):
@@ -306,7 +298,7 @@ class Ball:
                         self.ripple(magnitude * 4.0)
                         volume = (magnitude - 3.0) / 5.0 + 0.2
 
-                        sound_normal.play_random(volume, self.is_player)
+                        sound.normal_scale.play_random(volume, self.is_player)
 
                 elif self.shell_type == FLOAT:
                     self.ripple(magnitude * 4.0)
