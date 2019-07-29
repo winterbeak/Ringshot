@@ -47,7 +47,7 @@ mouse_release = False
 
 sound_transition = sound.load("transition")
 
-LAST_LEVEL = levels.count_levels() - 1
+LAST_LEVEL = 53
 
 save_data = open("Easily Editable Save Data.txt", 'r')
 last_unlocked = int(save_data.read())
@@ -59,6 +59,8 @@ LEVEL_FONT = graphics.load_image("level_numbers")
 logo_name = graphics.load_image("name", 4)
 logo_bird_sprite = graphics.Spritesheet("logo", 10, 10, (11,), 4)
 logo_bird = graphics.SpriteInstance(logo_bird_sprite)
+
+sound.play_music()
 
 
 def render_level_number(number):
@@ -649,7 +651,7 @@ class LevelTransition:
         self.radius = 0.0
         self.width = 0.0
 
-        self.transparency_temp = graphics.new_surface(FULL_SIZE)
+        self.transparency_temp = graphics.new_surface(constants.SCREEN_SIZE)
 
         self.shell_count = 0
         self.color = constants.WHITE
@@ -714,16 +716,20 @@ class LevelTransition:
             self.draw_previous(surface, shake_position)
 
             center = (int(self.center[0]), int(self.center[1]))
+            center = (center[0] - SCREEN_LEFT, center[1] - SCREEN_TOP)
+
             radius = int(self.radius)
             width = int(self.width)
 
             self.transparency_temp.fill(constants.BLACK)
-            self.draw_next(self.transparency_temp)
+            self.draw_next(self.transparency_temp, (-SCREEN_LEFT, -SCREEN_TOP))
             color = constants.TRANSPARENT
             pygame.draw.circle(self.transparency_temp, color, center, radius)
 
-            surface.blit(self.transparency_temp, shake_position)
+            position = graphics.screen_position(shake_position)
+            surface.blit(self.transparency_temp, position)
 
+            center = (center[0] + SCREEN_LEFT, center[1] + SCREEN_TOP)
             pygame.draw.circle(surface, self.color, center, radius, width)
 
         elif self.type == self.LEVEL_TO_LEVEL or self.type == self.MENU_TO_LEVEL:
@@ -885,7 +891,8 @@ transition = LevelTransition()
 MENU = 0
 PLAY = 1
 TRANSITION = 2
-current_screen = MENU
+play_screen.load_level(1)
+current_screen = PLAY  # change back to MENU later
 
 while True:
     events.update()
@@ -919,10 +926,11 @@ while True:
 
             if not play_screen.pause_exit:
                 if last_unlocked < play_screen.level_num + 1:
-                    last_unlocked = play_screen.level_num + 1
-                    save_data = open("Easily Editable Save Data.txt", 'w')
-                    save_data.write(str(last_unlocked) + "\n")
-                    save_data.close()
+                    if play_screen.level_num - 1 != LAST_LEVEL:
+                        last_unlocked = play_screen.level_num + 1
+                        save_data = open("Easily Editable Save Data.txt", 'w')
+                        save_data.write(str(last_unlocked) + "\n")
+                        save_data.close()
 
             else:
                 play_screen.pause_exit = False

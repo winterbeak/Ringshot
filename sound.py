@@ -213,17 +213,17 @@ class Instrument:
 normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
 normal_instrument.set_limits(4, 30)
 # these scale names may or may not be accurate
-scale_progression = ((AS2, B2, CS2, DS2, F2),  # F# Major
-                     (B2, CS2, DS2, E2, FS2, AS3, B3),  # B Major
-                     (D2, E2, FS2, GS2, A3, B3, CS3),  # F# Aeolian
-                     (DS2, F2, FS2, GS2, AS3, C3, CS3),  # D# Dorian
+scale_progression = ((CS2, F2, FS2, GS2),  # F# Major
+                     (CS2, DS2, F2, FS2, GS2),  # B Major
+                     (CS2, A2, B2, D2, E2, FS2, GS2),  # F# Aeolian
+                     (CS3, DS2, F2, FS2, GS2, AS3),  # D# Dorian
 
-                     (AS2, B2, CS2, DS2, F2),  # Those four again
-                     (B2, CS2, DS2, E2, FS2, AS3, B3),
-                     (D2, E2, FS2, GS2, A3, B3, CS3),
-                     (DS2, F2, FS2, GS2, AS3, C3, CS3),
+                     (CS2, F2, FS2, GS2),  # Those four again
+                     (CS2, DS2, F2, FS2, GS2),
+                     (CS2, A2, B2, D2, E2, FS2, GS2),
+                     (CS2, DS2, F2, FS2, GS2, AS3),
 
-                     (AS2, C2, CS2, DS2, F2, FS2, GS2),  # A# Natural Minor
+                     (AS2, C2, CS2, DS2, F2, GS2),  # A# Natural Minor
                      (CS2, DS2, F2, FS2, GS2, AS3, C3),  # C# Major
                      (DS2, F2, FS2, GS2, AS3, C3, CS3),  # D# Dorian
                      (FS2, GS2, A3, C3, CS3, DS3, F3),  # IDK What This Scale Is
@@ -243,4 +243,3 @@ set_music_volume(0.3)
 chord_length = 4000  # chord length in milliseconds
 # music track length in milliseconds
 music_length = chord_length * len(scale_progression)
-play_music()
