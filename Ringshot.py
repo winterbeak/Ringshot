@@ -918,9 +918,6 @@ while True:
                 transition.init_level_to_level()
 
             if not play_screen.pause_exit:
-                if play_screen.end_ball.shell_type == ball.NORMAL:
-                    sound.normal_scale.play_tonic(0.8, True)
-
                 if last_unlocked < play_screen.level_num + 1:
                     last_unlocked = play_screen.level_num + 1
                     save_data = open("Easily Editable Save Data.txt", 'w')

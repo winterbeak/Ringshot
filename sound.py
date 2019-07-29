@@ -1,5 +1,8 @@
 # ALWAYS IMPORT SOUND BEFORE ANYTHING ELSE
 
+# MAKE SURE ALL NON-STANDARD LIBRARY IMPORTS IN THIS FILE ARE
+# DONE AFTER pygame.init()
+
 import pygame
 import random
 import os
@@ -46,6 +49,7 @@ normal_scale = None
 
 def update():
     global normal_scale
+
     for soundset in soundsets:
         if soundset.limited:
             for i in reversed(range(len(soundset.durations))):
@@ -54,15 +58,8 @@ def update():
                 else:
                     soundset.durations[i] -= 1
 
-    chord = (pygame.mixer.music.get_pos() % music_length) // chord_length
-    if chord == 0:
-        normal_scale = normal_fs_major
-    elif chord == 1:
-        normal_scale = normal_b_major
-    elif chord == 2:
-        normal_scale = normal_fs_aeolian
-    elif chord == 3:
-        normal_scale = normal_ds_dorian
+    scale = (pygame.mixer.music.get_pos() % music_length) // chord_length
+    normal_scale = normal_scales[scale]
 
 
 def load_music(path):
@@ -213,17 +210,37 @@ class Instrument:
             octave.set_sound_limit(limit, sound_length)
 
 
+normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
+normal_instrument.set_limits(4, 30)
+# these scale names may or may not be accurate
+scale_progression = ((AS2, B2, CS2, DS2, F2),  # F# Major
+                     (B2, CS2, DS2, E2, FS2, AS3, B3),  # B Major
+                     (D2, E2, FS2, GS2, A3, B3, CS3),  # F# Aeolian
+                     (DS2, F2, FS2, GS2, AS3, C3, CS3),  # D# Dorian
+
+                     (AS2, B2, CS2, DS2, F2),  # Those four again
+                     (B2, CS2, DS2, E2, FS2, AS3, B3),
+                     (D2, E2, FS2, GS2, A3, B3, CS3),
+                     (DS2, F2, FS2, GS2, AS3, C3, CS3),
+
+                     (AS2, C2, CS2, DS2, F2, FS2, GS2),  # A# Natural Minor
+                     (CS2, DS2, F2, FS2, GS2, AS3, C3),  # C# Major
+                     (DS2, F2, FS2, GS2, AS3, C3, CS3),  # D# Dorian
+                     (FS2, GS2, A3, C3, CS3, DS3, F3),  # IDK What This Scale Is
+
+                     (F2, FS2, GS2, AS3, C3, CS3),  # Okay starting to
+                     (CS2, DS2, F2, GS2, AS3),  # realize that these
+                     (F2, FS2, GS2, A3, CS3, DS3),  # are just notes I think
+                     (DS2, F2, FS2, A3, C3, CS3)  # sound nice with the chord
+                     # and aren't actually scales
+                     )
+normal_scales = [Scale(normal_instrument, notes) for notes in scale_progression]
+
+
 load_music("test_music")
 set_music_volume(0.3)
-music_length = 16000  # music track length in milliseconds
+
 chord_length = 4000  # chord length in milliseconds
+# music track length in milliseconds
+music_length = chord_length * len(scale_progression)
 play_music()
-
-
-normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
-normal_instrument.set_limits(4, 15)
-# these scale names may or may not be accurate
-normal_fs_major = Scale(normal_instrument, (FS2, GS2, AS3, B3, CS3, DS3, F3))
-normal_b_major = Scale(normal_instrument, (B2, CS2, DS2, E2, FS2, GS2, AS3))
-normal_fs_aeolian = Scale(normal_instrument, (FS2, GS2, A3, B3, CS3, D3, E3))
-normal_ds_dorian = Scale(normal_instrument, (DS2, F2, FS2, GS2, AS3, C3, CS3))
