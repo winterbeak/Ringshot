@@ -6,6 +6,7 @@
 import pygame
 import random
 import os
+import math
 
 music_muted = False
 sfx_muted = False
@@ -17,6 +18,8 @@ pygame.init()
 
 channels = [pygame.mixer.Channel(channel) for channel in range(CHANNEL_COUNT)]
 soundsets = []
+
+import debug
 
 note_strings = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
 A2 = 0  # 3 for the third octave on the piano
@@ -45,10 +48,12 @@ G3 = 22
 GS3 = 23
 
 normal_scale = None
+ghost_note = None
 
 
 def update():
     global normal_scale
+    global ghost_note
 
     for soundset in soundsets:
         if soundset.limited:
@@ -58,8 +63,16 @@ def update():
                 else:
                     soundset.durations[i] -= 1
 
-    scale = (pygame.mixer.music.get_pos() % music_length) // chord_length
-    normal_scale = normal_scales[scale]
+    music_position = pygame.mixer.music.get_pos()
+    scale_num = (music_position % music_length) // chord_length
+    normal_scale = normal_scales[scale_num]
+    ghost_note = ghost_notes[scale_num]
+
+    ghost_volume = music_position % 2000
+    ghost_volume = -0.125 * math.sin((0.18 * math.pi / 180) * ghost_volume) + 0.75
+
+    ghost_note.set_volume(ghost_volume)
+    debug.debug(ghost_volume)
 
 
 def load_music(path):
@@ -212,6 +225,16 @@ class Instrument:
 
 normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
 normal_instrument.set_limits(4, 30)
+
+# the ghost bass is just a single note for each chord
+ghost_fs0 = load("ghost_f#0")
+ghost_a1 = load("ghost_a1")
+ghost_as1 = load("ghost_a#1")
+ghost_b1 = load("ghost_b1")
+ghost_cs1 = load("ghost_c#1")
+ghost_ds1 = load("ghost_d#1")
+ghost_fs1 = load("ghost_f#1")
+
 # these scale names may or may not be accurate
 scale_progression = ((CS2, F2, FS2, GS2),  # F# Major
                      (CS2, DS2, F2, FS2, GS2),  # B Major
@@ -234,7 +257,12 @@ scale_progression = ((CS2, F2, FS2, GS2),  # F# Major
                      (DS2, F2, FS2, A3, C3, CS3)  # sound nice with the chord
                      # and aren't actually scales
                      )
+
 normal_scales = [Scale(normal_instrument, notes) for notes in scale_progression]
+ghost_notes = (ghost_cs1, ghost_b1, ghost_a1, ghost_fs0,
+               ghost_cs1, ghost_b1, ghost_a1, ghost_fs0,
+               ghost_as1, ghost_cs1, ghost_ds1, ghost_fs1,
+               ghost_cs1, ghost_cs1, ghost_fs1, ghost_ds1)
 
 
 load_music("test_music")

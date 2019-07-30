@@ -583,6 +583,10 @@ class PlayScreen:
             self.slowmo_factor = self.SLOWMO_MAX
 
     def load_level(self, level_num):
+        """Prepares play_screen to play the given level.
+
+        level_num is zero indexed, unlike the save file and in-game numbers.
+        """
         self.block_surface.fill(constants.TRANSPARENT)
         self.slowmo_factor = 1.0
 
@@ -891,7 +895,7 @@ transition = LevelTransition()
 MENU = 0
 PLAY = 1
 TRANSITION = 2
-play_screen.load_level(1)
+play_screen.load_level(24)
 current_screen = PLAY  # change back to MENU later
 
 while True:
