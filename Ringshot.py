@@ -895,7 +895,7 @@ transition = LevelTransition()
 MENU = 0
 PLAY = 1
 TRANSITION = 2
-play_screen.load_level(38)
+play_screen.load_level(24)
 current_screen = PLAY  # change back to MENU later
 
 while True:

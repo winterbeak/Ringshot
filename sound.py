@@ -6,7 +6,7 @@
 import pygame
 import random
 import os
-import math
+# import math
 
 music_muted = False
 sfx_muted = False
@@ -19,7 +19,7 @@ pygame.init()
 channels = [pygame.mixer.Channel(channel) for channel in range(CHANNEL_COUNT)]
 soundsets = []
 
-import debug
+# import debug
 
 note_strings = ['a', 'a#', 'b', 'c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#']
 A2 = 0  # 3 for the third octave on the piano
@@ -48,14 +48,16 @@ G3 = 22
 GS3 = 23
 
 normal_scale = None
-ghost_note = None
+ghost_scale = None
 float_scale = None
+button_note = None
 
 
 def update():
     global normal_scale
-    global ghost_note
+    global ghost_scale
     global float_scale
+    global button_note
 
     for soundset in soundsets:
         if soundset.limited:
@@ -67,15 +69,17 @@ def update():
 
     music_position = pygame.mixer.music.get_pos()
     scale_num = (music_position % music_length) // chord_length
+
     normal_scale = normal_scales[scale_num]
+    ghost_scale = ghost_scales[scale_num]
     float_scale = float_scales[scale_num]
-    ghost_note = ghost_notes[scale_num]
+    button_note = button_note_indexes[scale_num]
 
-    ghost_volume = music_position % 2000
-    ghost_volume = -0.125 * math.sin((0.18 * math.pi / 180) * ghost_volume) + 0.75
-
-    ghost_note.set_volume(ghost_volume)
-    debug.debug(ghost_volume)
+    # ghost_volume = music_position % 2000
+    # ghost_volume = -0.125 * math.sin((0.18 * math.pi / 180) * ghost_volume) + 0.75
+    #
+    # ghost_note.set_volume(ghost_volume)
+    # debug.debug(ghost_volume)
 
 
 def load_music(path):
@@ -228,17 +232,10 @@ class Instrument:
 
 normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
 normal_instrument.set_limits(4, 30)
+ghost_instrument = Instrument(("ghost_%s1", "ghost_%s2"))
+ghost_instrument.set_limits(4, 30)
 float_instrument = Instrument(("float_%s2", "float_%s3"))
 float_instrument.set_limits(4, 30)
-
-# the ghost bass is just a single note for each chord
-ghost_fs0 = load("ghost_f#0")
-ghost_a1 = load("ghost_a1")
-ghost_as1 = load("ghost_a#1")
-ghost_b1 = load("ghost_b1")
-ghost_cs1 = load("ghost_c#1")
-ghost_ds1 = load("ghost_d#1")
-ghost_fs1 = load("ghost_f#1")
 
 # these scale names may or may not be accurate
 normal_progression = ((CS2, F2, FS2, GS2),  # F# Major
@@ -263,6 +260,27 @@ normal_progression = ((CS2, F2, FS2, GS2),  # F# Major
                       # and aren't actually scales
                       )
 
+ghost_progression = ((CS2, DS2, FS2, GS2, AS2),
+                     (CS2, DS2, FS2, GS2, AS2),
+                     (B2, D2, F2, B3),
+                     (B2, D2, F2, GS2, B3, D3),
+
+                     (CS2, DS2, FS2, GS2, AS2),
+                     (CS2, DS2, FS2, GS2, AS2),
+                     (B2, D2, F2, B3),
+                     (B2, D2, F2, GS2, B3, D3),
+
+                     (DS2, FS2, AS3, CS3),
+                     (CS2, FS2, GS2, AS3, CS3),
+                     (DS2, FS2, GS2, AS3),
+                     (FS2, GS2, CS3, DS3),
+
+                     (CS2, FS2, GS2, AS3),
+                     (D2, FS2, GS2),
+                     (B2, D2, FS2, GS2, AS3),
+                     (B2, D2, FS2, GS2, AS3, CS3)
+                     )
+
 # float-shell notes are different from normal-shell notes
 float_progression = ((CS2, DS2, F2, FS2, GS2),
                      (B2, CS2, DS2, F2, FS2, GS2),
@@ -286,11 +304,24 @@ float_progression = ((CS2, DS2, F2, FS2, GS2),
                      )
 
 normal_scales = [Scale(normal_instrument, notes) for notes in normal_progression]
-ghost_notes = (ghost_cs1, ghost_b1, ghost_a1, ghost_fs0,
-               ghost_cs1, ghost_b1, ghost_a1, ghost_fs0,
-               ghost_as1, ghost_cs1, ghost_ds1, ghost_fs1,
-               ghost_cs1, ghost_cs1, ghost_fs1, ghost_ds1)
+ghost_scales = [Scale(ghost_instrument, notes) for notes in ghost_progression]
 float_scales = [Scale(float_instrument, notes) for notes in float_progression]
+
+# the button bass is just a single note for each chord
+BUTTON_FS0 = 0
+BUTTON_A1 = 1
+BUTTON_AS1 = 2
+BUTTON_B1 = 3
+BUTTON_CS1 = 4
+BUTTON_DS1 = 5
+BUTTON_FS1 = 6
+button_note_strings = ("f#0", "a1", "a#1", "b1", "c#1", "d#1", "f#1")
+button_notes = load_strings("button_%s", button_note_strings)
+button_note_indexes = (BUTTON_CS1, BUTTON_B1, BUTTON_A1, BUTTON_FS0,
+                       BUTTON_CS1, BUTTON_B1, BUTTON_A1, BUTTON_FS0,
+                       BUTTON_AS1, BUTTON_CS1, BUTTON_DS1, BUTTON_FS1,
+                       BUTTON_CS1, BUTTON_CS1, BUTTON_FS1, BUTTON_DS1)
+button_notes.set_sound_limit(4, 30)
 
 load_music("test_music")
 set_music_volume(0.3)

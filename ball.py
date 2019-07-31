@@ -24,8 +24,6 @@ MAX_SHELLS = 10
 SMALLEST_RADIUS = 6  # the radius of the smallest, innermost ball
 SHELL_WIDTH = 2
 
-sound_button = sound.load_numbers("button%i", 3)
-
 
 def first_ball_radius(level):
     return (len(level.start_shells) - 1) * SHELL_WIDTH + SMALLEST_RADIUS
@@ -255,7 +253,7 @@ class Ball:
                 if level.is_button(tile) and not level.is_pressed(tile):
                     level.press(tile)
                     level.button_ripple(tile)
-                    sound_button.play_random()
+                    sound.button_notes.play(sound.button_note, 0.8)
 
                 segments = level.tile_to_segments(tile)
                 if not segments:
@@ -309,14 +307,14 @@ class Ball:
                     flat_ground = abs(perpendicular) < 0.0001
                     grounded = abs(self.y_velocity) < self.GROUNDED_THRESHOLD
                     if magnitude > 3.0 and not (flat_ground and grounded):
-                        self.ripple(magnitude * 4.0)
+                        self.ripple(magnitude * 4.0, shell_type)
                         volume = (magnitude - 3.0) / 5.0 + 0.2
 
                         sound.normal_scale.play_random(volume, self.is_player)
 
                 elif self.shell_type == FLOAT:
                     if magnitude > 1.0:
-                        self.ripple(magnitude * 4.0)
+                        self.ripple(magnitude * 4.0, shell_type)
                         volume = (magnitude - 1.0) / 5.0 + 0.2
 
                         sound.float_scale.play_random(volume)
@@ -336,7 +334,7 @@ class Ball:
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
 
         if ghost_ripple and self.ghost_ripple_timer >= self.GHOST_RIPPLE_DELAY:
-            sound.ghost_note.play()
+            sound.ghost_scale.play_random(0.5)
             self.ghost_ripple_timer = 0.0
             position = graphics.screen_position(self.position)
             color = SHELL_DEBUG_COLORS[GHOST]
@@ -352,9 +350,11 @@ class Ball:
                 return False
         return True
 
-    def ripple(self, radius):
+    def ripple(self, radius, shell=-1):
+        if shell == -1:
+            shell = self.shell_type
         radius = radius
-        color = SHELL_DEBUG_COLORS[self.shell_type]
+        color = SHELL_DEBUG_COLORS[shell]
         x = self.x + constants.SCREEN_LEFT
         y = self.y + constants.SCREEN_TOP
         graphics.create_ripple((x, y), color, radius)
