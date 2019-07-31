@@ -7,6 +7,7 @@ import geometry
 
 
 pygame.init()
+pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 
 LEFT = 1
@@ -128,7 +129,7 @@ class Spritesheet:
         self.full_h = self.surface.get_height() * multiplier
         if multiplier > 1:
             dimensions = self.full_w, self.full_h
-            self.surface = pygame.transform.scale(self.surface, (dimensions))
+            self.surface = pygame.transform.scale(self.surface, dimensions)
         self.surface.set_colorkey(constants.TRANSPARENT)
 
         self.frame_w = multiplier * frame_w
@@ -297,3 +298,61 @@ def draw_ripples(surface, offset=(0, 0)):
 
 def clear_ripples():
     ripples.clear()
+
+
+def scale(surface, multiplier):
+    width = int(surface.get_width() * multiplier)
+    height = int(surface.get_height() * multiplier)
+    return pygame.transform.scale(surface, (width, height))
+
+
+font_numbers = load_image("numbers")
+font_uppercase = load_image("uppercase")
+font_lowercase = load_image("lowercase")
+font_symbols = load_image("symbols")
+valid_symbols = ('!', ',', '.', '?')  # in order of appearance in the image
+valid_symbols_ascii = [ord(symbol) for symbol in valid_symbols]
+
+
+def textify(string, multiplier=1):
+    numbers = font_numbers
+    uppercase = font_uppercase
+    lowercase = font_lowercase
+    symbols = font_symbols
+    text_width = 9
+    if multiplier != 1:
+        numbers = scale(numbers, multiplier)
+        uppercase = scale(uppercase, multiplier)
+        lowercase = scale(lowercase, multiplier)
+        symbols = scale(symbols, multiplier)
+        text_width *= multiplier
+
+    text_spacing = int(text_width + text_width / 9 * 2)
+
+    text_surface = new_surface((len(string) * text_spacing, 21))
+    for index, character in enumerate(string):
+        position = (index * text_spacing, 0)
+
+        ascii_value = ord(character)
+        if 48 <= ascii_value <= 57:
+            rect = ((ascii_value - 48) * text_width, 0, text_width, 15)
+            text_surface.blit(numbers, position, rect)
+        elif 65 <= ascii_value <= 90:
+            rect = ((ascii_value - 65) * text_width, 0, text_width, 15)
+            text_surface.blit(uppercase, position, rect)
+        elif 97 <= ascii_value <= 122:
+            rect = ((ascii_value - 97) * text_width, 0, text_width, 21)
+            text_surface.blit(lowercase, position, rect)
+        else:
+            index = 0
+            for symbol in valid_symbols_ascii:
+                if symbol == ascii_value:
+                    break
+                index += 1
+            else:
+                continue
+
+            rect = (index * text_width, 0, text_width, 21)
+            text_surface.blit(symbols, position, rect)
+
+    return text_surface

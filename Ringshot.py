@@ -55,7 +55,6 @@ save_data.close()
 
 LEVELS_PER_COURSE = 18
 
-LEVEL_FONT = graphics.load_image("level_numbers")
 logo_name = graphics.load_image("name", 4)
 logo_bird_sprite = graphics.Spritesheet("logo", 10, 10, (11,), 4)
 logo_bird = graphics.SpriteInstance(logo_bird_sprite)
@@ -64,12 +63,7 @@ sound.play_music()
 
 
 def render_level_number(number):
-    number_string = str(number)
-    surface = graphics.new_surface((len(number_string) * 9, 15))
-    for digit_num, digit in enumerate(str(number)):
-        x = int(digit) * 9
-        surface.blit(LEVEL_FONT, (digit_num * 9, 0), (x, 0, 9, 15))
-    return surface
+    return graphics.textify(str(number))
 
 
 class MenuScreen:
@@ -103,6 +97,14 @@ class MenuScreen:
     LOGO_BIRD_Y = FULL_HEIGHT - 100
     LOGO_NAME_X = LOGO_BIRD_X + 64
     LOGO_NAME_Y = LOGO_BIRD_Y - 12
+
+    ZOOMED = 1
+    ZOOMING_OUT = 2
+    NORMAL = 3
+    ZOOM_LENGTH = 30
+    ZOOM_INITIAL = 4.0
+    ZOOM_A = ZOOM_INITIAL - 1.0
+    ZOOM_A /= ZOOM_LENGTH ** 2
 
     def __init__(self):
         self.arrow_y_offset = 0.0
@@ -138,7 +140,15 @@ class MenuScreen:
         self.grow_a = 0.0
         self.level_alpha = 0
 
+        self.zoom_state = self.NORMAL
+        self.zoom_frame = 0
+        self.zoom_amount = self.ZOOM_INITIAL
+        self.unzoomed_surface = graphics.new_surface(constants.SCREEN_SIZE)
+
     def update(self):
+        if events.keys.pressed_key == pygame.K_ESCAPE:
+            events.quit_program()
+
         for angle_num in range(len(self.angle_offsets)):
             self.angle_offsets[angle_num] += self.ROTATE_SPEED
             self.angle_offsets[angle_num] %= math.pi * 2
@@ -160,6 +170,20 @@ class MenuScreen:
                 self.grow_course = False
             self.grow_frame += 1
 
+            return
+
+        if self.zoom_state != self.NORMAL:
+            if self.zoom_state == self.ZOOMED and events.mouse.released:
+                self.zoom_state = self.ZOOMING_OUT
+            if self.zoom_state == self.ZOOMING_OUT:
+                if self.zoom_frame <= self.ZOOM_LENGTH:
+                    self.zoom_amount = (self.zoom_frame - self.ZOOM_LENGTH) ** 2
+                    self.zoom_amount = self.ZOOM_A * self.zoom_amount + 1.0
+                    self.zoom_frame += 1
+                else:
+                    self.zoom_frame = 0
+                    self.zoom_amount = 1.0
+                    self.zoom_state = self.NORMAL
             return
 
         if not self.changing_page and self.page == self.LEVEL_SELECT:
@@ -198,9 +222,6 @@ class MenuScreen:
                 self.page = self.next_page
 
         logo_bird.delay_next(10)
-
-        if events.keys.pressed_key == pygame.K_ESCAPE:
-            events.quit_program()
 
     def draw(self, surface, position=(0, 0)):
         """Set level_hover to false if you don't want to draw the level
@@ -256,6 +277,18 @@ class MenuScreen:
             self.draw_level_select(surface, position[0], position[1])
         elif self.page == self.CREDITS:
             self.draw_credits_options(surface, position[0], position[1])
+
+    def draw_zoomed(self, surface, position=(0, 0)):
+        position = (position[0] - SCREEN_LEFT, position[1] - SCREEN_TOP)
+        self.unzoomed_surface.fill(constants.BLACK)
+        self.draw(self.unzoomed_surface, position)
+
+        w = int(SCREEN_WIDTH * self.zoom_amount)
+        h = int(SCREEN_HEIGHT * self.zoom_amount)
+        x = int((FULL_WIDTH / 2) - (w / 2))
+        y = int((FULL_HEIGHT / 2) - (h / 2))
+        scaled_surface = pygame.transform.scale(self.unzoomed_surface, (w, h))
+        surface.blit(scaled_surface, (x, y))
 
     def draw_level_select(self, surface, x_offset=0, y_offset=0):
         last_level = last_unlocked
@@ -662,9 +695,6 @@ class LevelTransition:
 
         self.done = False
 
-        self.sound_grow_shell = sound.load_numbers("grow_shell%i", 10)
-        self.sound_grow_shell.set_volumes(0.3)
-
         self.sound_whoosh = sound.load("transition")
         self.sound_whoosh.set_volume(0.7)
 
@@ -692,7 +722,8 @@ class LevelTransition:
                 if self.shell_count > total_shells:
                     self.done = True
                 elif self.shell_count < 12:
-                    self.sound_grow_shell.play(self.shell_count - 1)
+                    instrument = sound.normal_instrument
+                    instrument.play(self.shell_count + sound.CS2 - 1, 0.7)
 
         else:
             self.done = True
@@ -887,6 +918,7 @@ def check_level_menu_transition():
 
 
 main_menu = MenuScreen()
+main_menu.zoom_state = main_menu.ZOOMED
 
 play_screen = PlayScreen()
 
@@ -895,8 +927,8 @@ transition = LevelTransition()
 MENU = 0
 PLAY = 1
 TRANSITION = 2
-play_screen.load_level(24)
-current_screen = PLAY  # change back to MENU later
+# play_screen.load_level(24)
+current_screen = MENU  # change back to MENU later
 
 while True:
     events.update()
@@ -941,7 +973,10 @@ while True:
 
     elif current_screen == MENU:
         main_menu.update()
-        main_menu.draw(final_display)
+        if main_menu.zoom_state == main_menu.NORMAL:
+            main_menu.draw(final_display)
+        else:
+            main_menu.draw_zoomed(final_display)
         if main_menu.switch_to_level:
             main_menu.switch_to_level = False
             main_menu.mouse_level = -1
@@ -970,6 +1005,9 @@ while True:
     debug.debug(main_menu.grow_frame)
     debug.debug(main_menu.mouse_arrow)
     debug.draw(final_display)
+
+    debug_text = graphics.textify("This *is* just a test, or is it...?!")
+    final_display.blit(debug_text, (20, 20))
 
     # if events.mouse.held:
     #     screen_update(2)

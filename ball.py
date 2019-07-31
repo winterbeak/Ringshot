@@ -334,7 +334,7 @@ class Ball:
             self.y_bounce_decay = self.NORMAL_BOUNCE_DECAY
 
         if ghost_ripple and self.ghost_ripple_timer >= self.GHOST_RIPPLE_DELAY:
-            sound.ghost_scale.play_random(0.5)
+            sound.ghost_scale.play_random(0.8)
             self.ghost_ripple_timer = 0.0
             position = graphics.screen_position(self.position)
             color = SHELL_DEBUG_COLORS[GHOST]

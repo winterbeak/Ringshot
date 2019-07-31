@@ -196,18 +196,9 @@ class Scale:
         self.notes = notes
         self.octaves = len(soundsets)
 
-    def play_tonic(self, volume=1.0, force_play=False):
-        """Plays the first note in the scale."""
-        note = self.notes[0]
-        soundset = self.instrument.octaves[note // 12]
-        note %= 12
-        soundset.play(note, volume, force_play)
-
     def play_random(self, volume=1.0, force_play=False):
         note = random.choice(self.notes)
-        soundset = self.instrument.octaves[note // 12]
-        note %= 12
-        soundset.play(note, volume, force_play)
+        self.instrument.play(note, volume, force_play)
 
 
 class Instrument:
@@ -228,6 +219,11 @@ class Instrument:
         """
         for octave in self.octaves:
             octave.set_sound_limit(limit, sound_length)
+
+    def play(self, note, volume=1.0, force_play=False):
+        soundset = self.octaves[note // 12]
+        note %= 12
+        soundset.play(note, volume, force_play)
 
 
 normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
@@ -323,7 +319,7 @@ button_note_indexes = (BUTTON_CS1, BUTTON_B1, BUTTON_A1, BUTTON_FS0,
                        BUTTON_CS1, BUTTON_CS1, BUTTON_FS1, BUTTON_DS1)
 button_notes.set_sound_limit(4, 30)
 
-load_music("test_music")
+load_music("music")
 set_music_volume(0.3)
 
 chord_length = 4000  # chord length in milliseconds
