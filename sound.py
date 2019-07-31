@@ -49,11 +49,13 @@ GS3 = 23
 
 normal_scale = None
 ghost_note = None
+float_scale = None
 
 
 def update():
     global normal_scale
     global ghost_note
+    global float_scale
 
     for soundset in soundsets:
         if soundset.limited:
@@ -66,6 +68,7 @@ def update():
     music_position = pygame.mixer.music.get_pos()
     scale_num = (music_position % music_length) // chord_length
     normal_scale = normal_scales[scale_num]
+    float_scale = float_scales[scale_num]
     ghost_note = ghost_notes[scale_num]
 
     ghost_volume = music_position % 2000
@@ -225,6 +228,8 @@ class Instrument:
 
 normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
 normal_instrument.set_limits(4, 30)
+float_instrument = Instrument(("float_%s2", "float_%s3"))
+float_instrument.set_limits(4, 30)
 
 # the ghost bass is just a single note for each chord
 ghost_fs0 = load("ghost_f#0")
@@ -236,38 +241,60 @@ ghost_ds1 = load("ghost_d#1")
 ghost_fs1 = load("ghost_f#1")
 
 # these scale names may or may not be accurate
-scale_progression = ((CS2, F2, FS2, GS2),  # F# Major
-                     (CS2, DS2, F2, FS2, GS2),  # B Major
-                     (CS2, A2, B2, D2, E2, FS2, GS2),  # F# Aeolian
-                     (CS3, DS2, F2, FS2, GS2, AS3),  # D# Dorian
+normal_progression = ((CS2, F2, FS2, GS2),  # F# Major
+                      (CS2, DS2, F2, FS2, GS2),  # B Major
+                      (CS2, A2, B2, D2, E2, FS2, GS2),  # F# Aeolian
+                      (CS2, DS2, F2, FS2, GS2, AS3),  # D# Dorian
 
-                     (CS2, F2, FS2, GS2),  # Those four again
+                      (CS2, F2, FS2, GS2),  # Those four again
+                      (CS2, DS2, F2, FS2, GS2),
+                      (CS2, A2, B2, D2, E2, FS2, GS2),
+                      (CS2, DS2, F2, FS2, GS2, AS3),
+
+                      (AS2, C2, CS2, DS2, F2, GS2),  # A# Natural Minor
+                      (CS2, DS2, F2, FS2, GS2, AS3, C3),  # C# Major
+                      (DS2, F2, FS2, GS2, AS3, C3, CS3),  # D# Dorian
+                      (FS2, GS2, A3, C3, CS3, DS3, F3),  # IDK What This Scale Is
+
+                      (F2, FS2, GS2, AS3, C3, CS3),  # Okay starting to
+                      (CS2, DS2, F2, GS2, AS3),  # realize that these
+                      (F2, FS2, GS2, A3, CS3, DS3),  # are just notes I think
+                      (DS2, F2, FS2, A3, C3, CS3)  # sound nice with the chord
+                      # and aren't actually scales
+                      )
+
+# float-shell notes are different from normal-shell notes
+float_progression = ((CS2, DS2, F2, FS2, GS2),
+                     (B2, CS2, DS2, F2, FS2, GS2),
+                     (A2, CS2, E2, GS2),
+                     (AS2, CS2, DS2, F2, GS2, AS3),
+
                      (CS2, DS2, F2, FS2, GS2),
-                     (CS2, A2, B2, D2, E2, FS2, GS2),
-                     (CS2, DS2, F2, FS2, GS2, AS3),
+                     (B2, CS2, DS2, F2, FS2, GS2),
+                     (A2, CS2, E2, GS2),
+                     (AS2, CS2, DS2, F2, GS2, AS3),
 
-                     (AS2, C2, CS2, DS2, F2, GS2),  # A# Natural Minor
-                     (CS2, DS2, F2, FS2, GS2, AS3, C3),  # C# Major
-                     (DS2, F2, FS2, GS2, AS3, C3, CS3),  # D# Dorian
-                     (FS2, GS2, A3, C3, CS3, DS3, F3),  # IDK What This Scale Is
+                     (AS2, CS2, DS2, F2, GS2, AS3),
+                     (CS2, DS2, F2, GS2, AS3),
+                     (DS2, FS2, GS2, A3, AS3, CS3),
+                     (FS2, A3, C3, CS3, DS3, FS3),
 
-                     (F2, FS2, GS2, AS3, C3, CS3),  # Okay starting to
-                     (CS2, DS2, F2, GS2, AS3),  # realize that these
-                     (F2, FS2, GS2, A3, CS3, DS3),  # are just notes I think
-                     (DS2, F2, FS2, A3, C3, CS3)  # sound nice with the chord
-                     # and aren't actually scales
+                     (CS2, DS2, F2, FS2, GS2, CS3),
+                     (DS2, FS2, GS2, A3, CS3, DS3),
+                     (FS2, A3, AS3, C3, DS3),
+                     (DS2, FS2, A3, C3, CS3, DS3, FS3)
                      )
 
-normal_scales = [Scale(normal_instrument, notes) for notes in scale_progression]
+normal_scales = [Scale(normal_instrument, notes) for notes in normal_progression]
 ghost_notes = (ghost_cs1, ghost_b1, ghost_a1, ghost_fs0,
                ghost_cs1, ghost_b1, ghost_a1, ghost_fs0,
                ghost_as1, ghost_cs1, ghost_ds1, ghost_fs1,
                ghost_cs1, ghost_cs1, ghost_fs1, ghost_ds1)
-
+float_scales = [Scale(float_instrument, notes) for notes in float_progression]
 
 load_music("test_music")
 set_music_volume(0.3)
 
 chord_length = 4000  # chord length in milliseconds
 # music track length in milliseconds
-music_length = chord_length * len(scale_progression)
+music_length = chord_length * len(normal_progression)

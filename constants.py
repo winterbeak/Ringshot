@@ -1,4 +1,6 @@
-from win32api import GetSystemMetrics
+import ctypes
+user32 = ctypes.windll.user32
+user32.SetProcessDPIAware()
 
 SCREEN_WIDTH = 500
 SCREEN_HEIGHT = 500
@@ -6,8 +8,8 @@ SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
 SCREEN_MIDDLE = (float(SCREEN_WIDTH) / 2, float(SCREEN_HEIGHT) / 2)
 SCREEN_MIDDLE_INT = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
-FULL_WIDTH = GetSystemMetrics(0)
-FULL_HEIGHT = GetSystemMetrics(1)
+FULL_WIDTH = user32.GetSystemMetrics(0)
+FULL_HEIGHT = user32.GetSystemMetrics(1)
 FULL_SIZE = (FULL_WIDTH, FULL_HEIGHT)
 FULL_MIDDLE = (float(FULL_WIDTH) / 2, float(FULL_HEIGHT) / 2)
 FULL_MIDDLE_INT = (FULL_WIDTH // 2, FULL_HEIGHT // 2)

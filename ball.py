@@ -293,15 +293,33 @@ class Ball:
 
                 magnitude = geometry.magnitude((new_velocity_x, new_velocity_y))
 
-                if self.is_player or self.shell_type == NORMAL:
-                    if magnitude > 3.0:
+                if self.is_player and self.shell_type == GHOST:
+                    for shell in self.containing_shells:
+                        if shell != GHOST:
+                            shell_type = shell
+                            break
+                    else:
+                        shell_type = CENTER
+                else:
+                    shell_type = self.shell_type
+
+                if shell_type == CENTER or shell_type == NORMAL:
+                    # a few checks to prevent rippling while
+                    # rolling on the ground
+                    flat_ground = abs(perpendicular) < 0.0001
+                    grounded = abs(self.y_velocity) < self.GROUNDED_THRESHOLD
+                    if magnitude > 3.0 and not (flat_ground and grounded):
                         self.ripple(magnitude * 4.0)
                         volume = (magnitude - 3.0) / 5.0 + 0.2
 
                         sound.normal_scale.play_random(volume, self.is_player)
 
                 elif self.shell_type == FLOAT:
-                    self.ripple(magnitude * 4.0)
+                    if magnitude > 1.0:
+                        self.ripple(magnitude * 4.0)
+                        volume = (magnitude - 1.0) / 5.0 + 0.2
+
+                        sound.float_scale.play_random(volume)
 
                 break
 
