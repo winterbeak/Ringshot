@@ -121,6 +121,48 @@ class Shaker:
 shaker = Shaker()
 
 
+class Fader:
+    def __init__(self):
+        self.surface = new_surface(constants.FULL_SIZE)
+        self.surface.fill(constants.BLACK)
+        self.alpha = 255
+        self.darkness = 0
+        self.target_darkness = 0
+        self.speed = 20
+
+    def fade_to(self, alpha):
+        self.target_darkness = 255 - alpha
+
+    def set_alpha(self, alpha):
+        self.alpha = alpha
+        self.darkness = 255 - alpha
+        self.target_darkness = 255 - alpha
+        self.surface.set_alpha(self.darkness)
+
+    def update(self):
+        if self.darkness < self.target_darkness:
+            self.darkness += self.speed
+
+            if self.darkness > self.target_darkness:
+                self.darkness = self.target_darkness
+
+        elif self.darkness > self.target_darkness:
+            self.darkness -= self.speed
+
+            if self.darkness < self.target_darkness:
+                self.darkness = self.target_darkness
+
+        self.surface.set_alpha(self.darkness)
+        self.alpha = 255 - self.darkness
+
+    def draw(self, surface):
+        if self.alpha != 255:
+            surface.blit(self.surface, (0, 0))
+
+
+fader = Fader()
+
+
 class Spritesheet:
     """Stores a spritesheet made of all of a thing's animations."""
     def __init__(self, sheet_path, frame_w, frame_h, frame_counts, multiplier=1):
@@ -310,15 +352,28 @@ font_numbers = load_image("numbers")
 font_uppercase = load_image("uppercase")
 font_lowercase = load_image("lowercase")
 font_symbols = load_image("symbols")
+
+font_numbers_black = load_image("numbers_black")
+font_uppercase_black = load_image("uppercase_black")
+font_lowercase_black = load_image("lowercase_black")
+font_symbols_black = load_image("symbols_black")
+
 valid_symbols = ('!', ',', '.', '?')  # in order of appearance in the image
 valid_symbols_ascii = [ord(symbol) for symbol in valid_symbols]
 
 
-def textify(string, multiplier=1):
-    numbers = font_numbers
-    uppercase = font_uppercase
-    lowercase = font_lowercase
-    symbols = font_symbols
+def textify(string, black=False, multiplier=1):
+    if black:
+        numbers = font_numbers_black
+        uppercase = font_uppercase_black
+        lowercase = font_lowercase_black
+        symbols = font_symbols_black
+    else:
+        numbers = font_numbers
+        uppercase = font_uppercase
+        lowercase = font_lowercase
+        symbols = font_symbols
+
     text_width = 9
     if multiplier != 1:
         numbers = scale(numbers, multiplier)

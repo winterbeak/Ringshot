@@ -59,7 +59,19 @@ logo_name = graphics.load_image("name", 4)
 logo_bird_sprite = graphics.Spritesheet("logo", 10, 10, (11,), 4)
 logo_bird = graphics.SpriteInstance(logo_bird_sprite)
 
-sound.play_music()
+logo_name_small = graphics.load_image("name_outlined", 2)
+logo_bird_sprite_small = graphics.Spritesheet("logo_outlined", 10, 10, (11,), 2)
+logo_bird_small = graphics.SpriteInstance(logo_bird_sprite_small)
+
+game_title = graphics.load_image("title")
+game_title_x = constants.SCREEN_MIDDLE[0] - game_title.get_width() // 2
+game_title_y = constants.SCREEN_MIDDLE[1] - game_title.get_height() // 2 - 10
+
+intro_text = graphics.textify("Click to start!", True)
+intro_text_x = constants.SCREEN_MIDDLE[0] - intro_text.get_width() // 2 + 1
+intro_text_y = constants.SCREEN_MIDDLE[1] + 25
+
+menu_temp_surface = graphics.new_surface(constants.SCREEN_SIZE)
 
 
 def render_level_number(number):
@@ -102,13 +114,15 @@ class MenuScreen:
     ZOOMING_OUT = 2
     NORMAL = 3
     ZOOM_LENGTH = 30
-    ZOOM_INITIAL = 4.0
+    ZOOM_INITIAL = 2.6
     ZOOM_A = ZOOM_INITIAL - 1.0
     ZOOM_A /= ZOOM_LENGTH ** 2
 
     def __init__(self):
         self.arrow_y_offset = 0.0
         self.arrow_frame = 0
+        self.arrow_alpha = 0
+        self.show_arrows = False
 
         self.page = self.LEVEL_SELECT
         self.next_page = 0
@@ -118,7 +132,7 @@ class MenuScreen:
         self.x_offset = 0.0
 
         self.switch_to_level = False
-        self.selected_level = 0
+        self.selected_level = -1
         self.transition_ball = None
 
         self.CIRCLE_RADII = (100, 140, 180, 220, 260)
@@ -144,10 +158,25 @@ class MenuScreen:
         self.zoom_frame = 0
         self.zoom_amount = self.ZOOM_INITIAL
         self.unzoomed_surface = graphics.new_surface(constants.SCREEN_SIZE)
+        self.first_zoom = True
+
+        self.show_credits = False
+        self.disable_clicking = False
+
+        self.exit_fading = True
+        self.exit_fade_delay = 0
 
     def update(self):
+        if self.exit_fading and graphics.fader.alpha == 0:
+            if self.exit_fade_delay == 30:
+                events.quit_program()
+
+            self.exit_fade_delay += 1
+
         if events.keys.pressed_key == pygame.K_ESCAPE:
-            events.quit_program()
+            graphics.fader.fade_to(0)
+
+        self.update_menu_buttons()
 
         for angle_num in range(len(self.angle_offsets)):
             self.angle_offsets[angle_num] += self.ROTATE_SPEED
@@ -184,20 +213,22 @@ class MenuScreen:
                     self.zoom_frame = 0
                     self.zoom_amount = 1.0
                     self.zoom_state = self.NORMAL
+                    self.first_zoom = False
+                    self.show_arrows = True
             return
 
         if not self.changing_page and self.page == self.LEVEL_SELECT:
             self.mouse_level = self.touching_level(events.mouse.position)
         else:
             self.mouse_level = -1
-        self.update_menu_buttons()
 
-        if events.mouse.released:
+        if events.mouse.released and not self.disable_clicking:
             if self.mouse_level != -1 and self.mouse_level < last_unlocked:
                 self.selected_level = self.mouse_level
                 self.switch_to_level = True
 
             elif self.mouse_arrow != 0:
+                self.show_arrows = False
                 self.changing_page = True
                 self.page_frame = 0
 
@@ -220,6 +251,7 @@ class MenuScreen:
             else:
                 self.changing_page = False
                 self.page = self.next_page
+                self.show_arrows = True
 
         logo_bird.delay_next(10)
 
@@ -228,11 +260,11 @@ class MenuScreen:
         being hovered over.
         """
         # Arrows
-        if not self.changing_page:
+        if self.arrow_alpha != 0:
             y = self.ARROW_Y + self.arrow_y_offset + position[1]
             w = self.ARROW_WIDTH
             h = self.ARROW_HEIGHT
-            color = constants.WHITE
+            color = (self.arrow_alpha, ) * 3
             if self.page != 0:
                 x = self.LEFT_ARROW_X + position[0]
                 direction = graphics.LEFT
@@ -251,7 +283,6 @@ class MenuScreen:
             self.draw_level_select(surface, shake_x, shake_y)
 
         elif self.changing_page:
-
             # Level select page
             if self.page == self.LEVEL_SELECT:
                 if self.page_direction == self.LEFT:
@@ -282,6 +313,10 @@ class MenuScreen:
         position = (position[0] - SCREEN_LEFT, position[1] - SCREEN_TOP)
         self.unzoomed_surface.fill(constants.BLACK)
         self.draw(self.unzoomed_surface, position)
+
+        y = intro_text_y + self.arrow_y_offset
+        self.unzoomed_surface.blit(intro_text, (intro_text_x, y))
+        self.unzoomed_surface.blit(game_title, (game_title_x, game_title_y))
 
         w = int(SCREEN_WIDTH * self.zoom_amount)
         h = int(SCREEN_HEIGHT * self.zoom_amount)
@@ -329,7 +364,12 @@ class MenuScreen:
             text_x = level_center[0] - (text.get_width() / 2) + x_offset
             text_y = level_center[1] - (text.get_height() / 2) + y_offset
 
-            if not self.grow_course and level == self.mouse_level:
+            if self.selected_level != -1:
+                hovered_level = self.selected_level
+            else:
+                hovered_level = self.mouse_level
+
+            if not self.grow_course and level == hovered_level:
                 text_y += 3
 
                 # Draws a circle around the selected level
@@ -337,18 +377,43 @@ class MenuScreen:
                 # position = self.level_center(self.mouse_level)
                 # pygame.draw.circle(surface, color, position, self.BUTTON_RADIUS, 2)
 
-                if level < len(self.block_layers):
-                    # position = constants.FULL_MIDDLE_INT
-                    # pygame.draw.circle(surface, constants.BLACK, position, 60)
-
-                    layer = self.block_layers[self.mouse_level]
-                    x = constants.FULL_MIDDLE[0]
-                    y = constants.FULL_MIDDLE[1]
-                    x -= levels.WIDTH * 3 / 2
-                    y -= levels.HEIGHT * 3 / 2
-                    layer.draw_thumbnail(surface, (x, y), constants.BLACK, 3)
-
             surface.blit(text, (text_x, text_y))
+
+        if self.selected_level != -1:
+            level = self.selected_level
+            thumbnail_disabled = False
+        elif self.mouse_level != -1:
+            level = self.mouse_level
+            thumbnail_disabled = self.show_credits or self.disable_clicking
+        else:
+            level = -1
+            thumbnail_disabled = True
+
+        is_valid_level = level != -1 and level < len(self.block_layers)
+        if is_valid_level and not thumbnail_disabled:
+            # position = constants.FULL_MIDDLE_INT
+            # pygame.draw.circle(surface, constants.BLACK, position, 60)
+
+            layer = self.block_layers[level]
+            x = constants.FULL_MIDDLE[0] + x_offset
+            y = constants.FULL_MIDDLE[1] + y_offset
+            x -= levels.WIDTH * 3 / 2
+            y -= levels.HEIGHT * 3 / 2
+            layer.draw_thumbnail(surface, (x, y), constants.BLACK, 3)
+
+        if self.show_credits:
+            x = SCREEN_LEFT + game_title_x + x_offset
+            y = SCREEN_TOP + game_title_y + y_offset - 6
+            surface.blit(game_title, (x, y))
+
+            x = constants.FULL_MIDDLE[0] - 44 + x_offset
+            y = constants.FULL_MIDDLE[1] + 12 + y_offset
+            surface.blit(logo_name_small, (x, y))
+
+            x = constants.FULL_MIDDLE[0] - 74 + x_offset
+            y = constants.FULL_MIDDLE[1] + 22 + y_offset
+            surface.blit(logo_bird_small.get_now_frame(), (x, y))
+            logo_bird_small.delay_next(10)
 
     def draw_credits_options(self, surface, x_offset=0, y_offset=0):
         x = self.LOGO_BIRD_X + x_offset
@@ -415,6 +480,7 @@ class MenuScreen:
         self.grow_a /= (self.PAUSE_LAST - self.GROW_LAST) ** 2
 
     def update_menu_buttons(self):
+        # Detect collision with mouse
         mouse_x, mouse_y = events.mouse.position
         top = self.ARROW_Y + self.arrow_y_offset
         bottom = self.ARROW_Y + self.ARROW_HEIGHT + self.arrow_y_offset
@@ -436,11 +502,40 @@ class MenuScreen:
         else:
             self.mouse_arrow = 0
 
-        self.arrow_y_offset = 3 * math.sin(3 * math.pi / 180 * self.arrow_frame)
+        # Bob up and down
+        self.arrow_y_offset = 2.9 * math.sin(3 * math.pi / 180 * self.arrow_frame)
         if self.arrow_frame >= 120:
             self.arrow_frame = 0
         else:
             self.arrow_frame += 1
+
+        # Change opacity
+        if self.show_arrows and self.arrow_alpha < 255:
+            self.arrow_alpha += 20
+
+            if self.arrow_alpha > 255:
+                self.arrow_alpha = 255
+
+        elif not self.show_arrows and self.arrow_alpha > 0:
+            self.arrow_alpha -= 20
+
+            if self.arrow_alpha < 0:
+                self.arrow_alpha = 0
+
+    def cover_title(self, surface):
+        menu_temp_surface.fill(constants.TRANSPARENT)
+
+        color = ball.SHELL_DEBUG_COLORS[ball.CENTER]
+        radius = int((self.CIRCLE_RADII[0] - 10) * self.zoom_amount)
+        position = constants.SCREEN_MIDDLE_INT
+        pygame.draw.circle(menu_temp_surface, color, position, radius)
+
+        circle_alpha = ((self.zoom_frame - 1) / (self.ZOOM_LENGTH // 2)) * 255
+        if circle_alpha > 255:
+            circle_alpha = 255
+        menu_temp_surface.set_alpha(circle_alpha)
+
+        surface.blit(menu_temp_surface, TOP_LEFT)
 
 
 class PlayScreen:
@@ -721,9 +816,9 @@ class LevelTransition:
 
                 if self.shell_count > total_shells:
                     self.done = True
-                elif self.shell_count < 12:
+                elif self.shell_count < 10:
                     instrument = sound.normal_instrument
-                    instrument.play(self.shell_count + sound.CS2 - 1, 0.7)
+                    instrument.play(sound.grow_notes[self.shell_count - 1], 0.7)
 
         else:
             self.done = True
@@ -846,6 +941,8 @@ class LevelTransition:
 
         self.shell_count = 0
 
+        main_menu.show_arrows = False
+
     def init_level_to_level(self):
         self.type = self.LEVEL_TO_LEVEL
         self.something_to_level = True
@@ -930,6 +1027,36 @@ TRANSITION = 2
 # play_screen.load_level(24)
 current_screen = MENU  # change back to MENU later
 
+# Logo loop
+LOGO_WIDTH = 284
+LOGO_HEIGHT = 52
+LOGO_BIRD_X = (FULL_WIDTH - LOGO_WIDTH) // 2
+LOGO_BIRD_Y = (FULL_HEIGHT - LOGO_HEIGHT) // 2
+LOGO_NAME_X = LOGO_BIRD_X + 64
+LOGO_NAME_Y = LOGO_BIRD_Y - 12
+
+graphics.fader.set_alpha(0)
+graphics.fader.fade_to(255)
+sound.intro_jingle.play()
+for frame in range(270):
+    events.update()
+
+    final_display.blit(logo_bird.get_now_frame(), (LOGO_BIRD_X, LOGO_BIRD_Y))
+    final_display.blit(logo_name, (LOGO_NAME_X, LOGO_NAME_Y))
+
+    logo_bird.delay_next(9)
+
+    if frame == 225:
+        graphics.fader.fade_to(0)
+
+    graphics.fader.update()
+    graphics.fader.draw(final_display)
+    screen_update(60)
+
+# Game loop
+graphics.fader.fade_to(255)
+sound.play_music()
+
 while True:
     events.update()
     sound.update()
@@ -950,7 +1077,8 @@ while True:
 
                 else:
                     if play_screen.level_num == LAST_LEVEL:
-                        main_menu.page = main_menu.CREDITS
+                        main_menu.show_credits = True
+                        main_menu.page = main_menu.LEVEL_SELECT
                         transition.init_level_to_menu()
 
                     else:
@@ -977,7 +1105,12 @@ while True:
             main_menu.draw(final_display)
         else:
             main_menu.draw_zoomed(final_display)
+
+            if main_menu.zoom_state == main_menu.ZOOMING_OUT:
+                main_menu.cover_title(final_display)
+
         if main_menu.switch_to_level:
+            main_menu.disable_clicking = True
             main_menu.switch_to_level = False
             main_menu.mouse_level = -1
             current_screen = TRANSITION
@@ -986,11 +1119,14 @@ while True:
 
     elif current_screen == TRANSITION:
         transition.update()
-
+        if transition.previous_screen == MENU or transition.next_screen == MENU:
+            main_menu.update()
         transition.draw(final_display)
 
         if transition.done:
             transition.done = False
+            if transition.previous_screen == MENU:
+                main_menu.selected_level = -1
 
             if transition.something_to_level:
                 current_screen = PLAY
@@ -998,16 +1134,18 @@ while True:
                     play_screen.slowmo_factor = play_screen.SLOWMO_MAX
             elif transition.type == transition.LEVEL_TO_MENU:
                 current_screen = MENU
+                main_menu.disable_clicking = False
+                main_menu.show_arrows = True
             graphics.clear_ripples()
+
+    graphics.fader.update()
+    graphics.fader.draw(final_display)
 
     debug.debug(clock.get_fps())
     debug.debug(current_screen)
     debug.debug(main_menu.grow_frame)
     debug.debug(main_menu.mouse_arrow)
     debug.draw(final_display)
-
-    debug_text = graphics.textify("This *is* just a test, or is it...?!")
-    final_display.blit(debug_text, (20, 20))
 
     # if events.mouse.held:
     #     screen_update(2)

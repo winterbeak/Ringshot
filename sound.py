@@ -217,8 +217,8 @@ class Instrument:
         """Sets the limit of how many sounds each octave can play at
         once.  sound_length is in frames.
         """
-        for octave in self.octaves:
-            octave.set_sound_limit(limit, sound_length)
+        for soundset in self.octaves:
+            soundset.set_sound_limit(limit, sound_length)
 
     def play(self, note, volume=1.0, force_play=False):
         soundset = self.octaves[note // 12]
@@ -228,8 +228,12 @@ class Instrument:
 
 normal_instrument = Instrument(("normal_%s2", "normal_%s3"))
 normal_instrument.set_limits(4, 30)
+for octave in normal_instrument.octaves:
+    octave.set_volumes(0.9)
 ghost_instrument = Instrument(("ghost_%s1", "ghost_%s2"))
 ghost_instrument.set_limits(4, 30)
+for octave in ghost_instrument.octaves:
+    octave.set_volumes(0.7)
 float_instrument = Instrument(("float_%s2", "float_%s3"))
 float_instrument.set_limits(4, 30)
 
@@ -299,6 +303,8 @@ float_progression = ((CS2, DS2, F2, FS2, GS2),
                      (DS2, FS2, A3, C3, CS3, DS3, FS3)
                      )
 
+grow_notes = (CS2, F2, FS2, GS2, AS3, C3, CS3, F3, FS3, GS3)
+
 normal_scales = [Scale(normal_instrument, notes) for notes in normal_progression]
 ghost_scales = [Scale(ghost_instrument, notes) for notes in ghost_progression]
 float_scales = [Scale(float_instrument, notes) for notes in float_progression]
@@ -318,6 +324,8 @@ button_note_indexes = (BUTTON_CS1, BUTTON_B1, BUTTON_A1, BUTTON_FS0,
                        BUTTON_AS1, BUTTON_CS1, BUTTON_DS1, BUTTON_FS1,
                        BUTTON_CS1, BUTTON_CS1, BUTTON_FS1, BUTTON_DS1)
 button_notes.set_sound_limit(4, 30)
+
+intro_jingle = load("intro_jingle")
 
 load_music("music")
 set_music_volume(0.3)
