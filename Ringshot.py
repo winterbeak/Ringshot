@@ -118,6 +118,58 @@ class MenuScreen:
     ZOOM_A = ZOOM_INITIAL - 1.0
     ZOOM_A /= ZOOM_LENGTH ** 2
 
+    EDITOR_WIDTH = 400
+    EDITOR_HEIGHT = 400
+    EDITOR_LEVELS_IN_ROW = 9
+    EDITOR_LEVELS_IN_COLUMN = 9
+    EDITOR_HORIZONTAL_SPACING = EDITOR_WIDTH // (EDITOR_LEVELS_IN_ROW - 1)
+    EDITOR_VERTICAL_SPACING = EDITOR_HEIGHT // (EDITOR_LEVELS_IN_COLUMN - 1)
+    EDITOR_LEFT = (FULL_WIDTH - EDITOR_WIDTH) // 2
+    EDITOR_TOP = (FULL_HEIGHT - EDITOR_HEIGHT) // 2
+
+    EDITOR_THUMBNAIL_X = SCREEN_LEFT + 50
+    EDITOR_THUMBNAIL_Y = SCREEN_TOP + SCREEN_HEIGHT - 100
+
+    PLAY = 1
+    EDIT = 2
+    DELETE = 3
+
+    EDITOR_TEXTS = (graphics.textify("Play"), graphics.textify("Edit"),
+                    graphics.textify("Delete"))
+    EDITOR_TEXTS_X = (EDITOR_THUMBNAIL_X + 100, EDITOR_THUMBNAIL_X + 100,
+                      EDITOR_THUMBNAIL_X + 90)
+    EDITOR_TEXTS_Y = (EDITOR_THUMBNAIL_Y, EDITOR_THUMBNAIL_Y + 31,
+                      EDITOR_THUMBNAIL_Y + 62)
+    EDITOR_TEXTS_BOXES = []
+    for text in range(len(EDITOR_TEXTS)):
+        EDITOR_TEXTS_BOXES.append(pygame.Rect(EDITOR_TEXTS_X[text],
+                                              EDITOR_TEXTS_Y[text],
+                                              EDITOR_TEXTS[text].get_width(),
+                                              EDITOR_TEXTS[text].get_height()))
+
+    CREDITS_TEXT = ("Made entirely with Python and Pygame",
+                    "in about a month's time.",
+                    "",
+                    "Source code can be found at",
+                    "github.com/snowdozer/ringshot.",
+                    "",
+                    "Font made by me.",
+                    "",
+                    "All sounds created with Ableton Live",
+                    "Lite 9's royalty free libraries.",
+                    "",
+                    "Shout outs to Mystery Tournament 14,",
+                    "and also to my friends for testing this.")
+
+    CREDITS_SUBTITLE = graphics.load_image("credits_subtitle")
+
+    CREDITS_TEXT_SURFACE = graphics.text_wall(CREDITS_TEXT)
+    CREDITS_X = (FULL_WIDTH - CREDITS_TEXT_SURFACE.get_width()) // 2
+    CREDITS_Y = FULL_HEIGHT // 2 - 10
+
+    CREDITS_SUBTITLE_X = (FULL_WIDTH - CREDITS_SUBTITLE.get_width()) // 2
+    CREDITS_SUBTITLE_Y = CREDITS_Y - 70
+
     def __init__(self):
         self.arrow_y_offset = 0.0
         self.arrow_frame = 0
@@ -144,6 +196,7 @@ class MenuScreen:
         self.BUTTON_RADIUS = 16
 
         self.mouse_level = -1
+        self.previous_frame_mouse_level = -1
         self.mouse_arrow = 0
         self.block_layers = levels.load_all_block_layers()
 
@@ -166,6 +219,11 @@ class MenuScreen:
         self.exit_fading = True
         self.exit_fade_delay = 0
 
+        self.volume_text = graphics.textify("Volume")
+
+        self.last_editor_level = levels.count_levels()
+        self.editor_button = 0
+
     def update(self):
         if self.exit_fading and graphics.fader.alpha == 0:
             if self.exit_fade_delay == 30:
@@ -175,6 +233,7 @@ class MenuScreen:
 
         if events.keys.pressed_key == pygame.K_ESCAPE:
             graphics.fader.fade_to(0)
+            sound.volume_control.fade_to(0.0)
 
         self.update_menu_buttons()
 
@@ -217,17 +276,59 @@ class MenuScreen:
                     self.show_arrows = True
             return
 
-        if not self.changing_page and self.page == self.LEVEL_SELECT:
-            self.mouse_level = self.touching_level(events.mouse.position)
+        if not self.changing_page:
+            if self.page == self.LEVEL_SELECT:
+                mouse_level = self.touching_level(events.mouse.position)
+                if mouse_level < last_unlocked:
+                    self.mouse_level = mouse_level
+
+                    if mouse_level != -1 and not self.disable_clicking:
+                        if self.previous_frame_mouse_level != mouse_level:
+                            course = self.mouse_level // LEVELS_PER_COURSE
+                            if course == 0:
+                                sound.normal_scale.play_random()
+                            elif course == 1:
+                                sound.ghost_scale.play_random()
+                            elif course == 2:
+                                sound.float_scale.play_random()
+
+            elif self.page == self.LEVEL_EDITOR:
+                mouse_level = self.touching_editor_level(events.mouse.position)
+
+                if mouse_level < self.last_editor_level:
+                    self.mouse_level = mouse_level
+
+                    if mouse_level != -1 and not self.disable_clicking:
+                        if self.previous_frame_mouse_level != mouse_level:
+                            sound.normal_scale.play_random()
+
         else:
             self.mouse_level = -1
+
+        if self.page == self.LEVEL_EDITOR and not self.disable_clicking:
+            mouse_x = events.mouse.position[0]
+            mouse_y = events.mouse.position[1]
+
+            if self.EDITOR_TEXTS_BOXES[0].collidepoint(mouse_x, mouse_y):
+                self.editor_button = self.PLAY
+            elif self.EDITOR_TEXTS_BOXES[1].collidepoint(mouse_x, mouse_y):
+                self.editor_button = self.EDIT
+            elif self.EDITOR_TEXTS_BOXES[2].collidepoint(mouse_x, mouse_y):
+                self.editor_button = self.DELETE
+            else:
+                self.editor_button = 0
 
         if events.mouse.released and not self.disable_clicking:
             if self.mouse_level != -1 and self.mouse_level < last_unlocked:
                 self.selected_level = self.mouse_level
                 self.switch_to_level = True
 
+            elif 0 <= self.mouse_level < self.last_editor_level:
+                self.selected_level = self.mouse_level
+
             elif self.mouse_arrow != 0:
+                self.selected_level = -1
+
                 self.show_arrows = False
                 self.changing_page = True
                 self.page_frame = 0
@@ -239,6 +340,18 @@ class MenuScreen:
                 elif self.mouse_arrow == self.RIGHT:
                     self.next_page = self.page + 1
                     self.page_direction = self.RIGHT
+
+            elif self.editor_button == self.PLAY:
+                self.switch_to_level = True
+
+            elif self.editor_button == self.EDIT:
+                pass
+
+            elif self.editor_button == self.DELETE:
+                levels.delete_level(self.selected_level)
+                del self.block_layers[self.selected_level]
+                self.selected_level = -1
+                self.last_editor_level -= 1
 
         if self.changing_page:
             if self.page_frame < self.PAGE_CHANGE_LENGTH:
@@ -253,6 +366,7 @@ class MenuScreen:
                 self.page = self.next_page
                 self.show_arrows = True
 
+        self.previous_frame_mouse_level = self.mouse_level
         logo_bird.delay_next(10)
 
     def draw(self, surface, position=(0, 0)):
@@ -304,10 +418,19 @@ class MenuScreen:
                 x = self.x_offset + position[0]
                 self.draw_credits_options(surface, int(x))
 
+            if self.page == self.LEVEL_EDITOR:
+                x = self.x_offset + FULL_WIDTH + position[0]
+                self.draw_editor(surface, int(x))
+            elif self.next_page == self.LEVEL_EDITOR:
+                x = self.x_offset + position[0]
+                self.draw_editor(surface, int(x))
+
         elif self.page == self.LEVEL_SELECT:
             self.draw_level_select(surface, position[0], position[1])
         elif self.page == self.CREDITS:
             self.draw_credits_options(surface, position[0], position[1])
+        elif self.page == self.LEVEL_EDITOR:
+            self.draw_editor(surface, position[0], position[1])
 
     def draw_zoomed(self, surface, position=(0, 0)):
         position = (position[0] - SCREEN_LEFT, position[1] - SCREEN_TOP)
@@ -337,8 +460,8 @@ class MenuScreen:
             level_center = self.level_center(last_level)
 
             text = render_level_number(last_level + 1)
-            text_x = level_center[0] - (text.get_width() / 2) + x_offset
-            text_y = level_center[1] - (text.get_height() / 2) + y_offset
+            text_x = level_center[0] - (text.get_width() / 2) + x_offset + 2
+            text_y = level_center[1] - (text.get_height() / 2) + y_offset + 3
             text.set_alpha(self.level_alpha)
 
             surface.blit(text, (text_x, text_y))
@@ -361,8 +484,8 @@ class MenuScreen:
             level_center = self.level_center(level)
 
             text = render_level_number(level + 1)
-            text_x = level_center[0] - (text.get_width() / 2) + x_offset
-            text_y = level_center[1] - (text.get_height() / 2) + y_offset
+            text_x = level_center[0] - (text.get_width() / 2) + x_offset + 2
+            text_y = level_center[1] - (text.get_height() / 2) + y_offset + 3
 
             if self.selected_level != -1:
                 hovered_level = self.selected_level
@@ -416,13 +539,60 @@ class MenuScreen:
             logo_bird_small.delay_next(10)
 
     def draw_credits_options(self, surface, x_offset=0, y_offset=0):
-        x = self.LOGO_BIRD_X + x_offset
-        y = self.LOGO_BIRD_Y + y_offset
-        surface.blit(logo_bird.get_now_frame(), (x, y))
+        x = self.CREDITS_X + x_offset
+        y = self.CREDITS_Y + y_offset
+        surface.blit(self.CREDITS_TEXT_SURFACE, (x, y))
 
-        x = self.LOGO_NAME_X + x_offset
-        y = self.LOGO_NAME_Y + y_offset
-        surface.blit(logo_name, (x, y))
+        x = self.CREDITS_SUBTITLE_X + x_offset
+        y = self.CREDITS_SUBTITLE_Y + y_offset
+        surface.blit(self.CREDITS_SUBTITLE, (x, y))
+
+        # x = self.LOGO_BIRD_X + x_offset
+        # y = self.LOGO_BIRD_Y + y_offset
+        # surface.blit(logo_bird.get_now_frame(), (x, y))
+        #
+        # x = self.LOGO_NAME_X + x_offset
+        # y = self.LOGO_NAME_Y + y_offset
+        # surface.blit(logo_name, (x, y))
+
+    def draw_editor(self, surface, x_offset=0, y_offset=0):
+        if self.mouse_level != -1:
+            selected_level = self.mouse_level
+            thumbnail_disabled = self.disable_clicking
+
+        elif self.selected_level != -1:
+            selected_level = self.selected_level
+            thumbnail_disabled = False
+
+        else:
+            selected_level = -1
+            thumbnail_disabled = True
+
+        for level in range(LAST_LEVEL + 1, self.last_editor_level):
+            text = graphics.textify(str(level + 1))
+            level_center = self.editor_level_center(level)
+            x = level_center[0] - (text.get_width() // 2) + x_offset
+            y = level_center[1] - (text.get_height() // 2) + y_offset
+
+            if level == selected_level:
+                y += 3
+
+            surface.blit(text, (x, y))
+
+        is_valid_level = 0 <= selected_level < len(self.block_layers)
+        if is_valid_level and not thumbnail_disabled:
+            layer = self.block_layers[selected_level]
+            x = self.EDITOR_THUMBNAIL_X + x_offset
+            y = self.EDITOR_THUMBNAIL_Y + y_offset
+
+            layer.draw_thumbnail(surface, (x, y), constants.WHITE, 3)
+
+            for text_num, text in enumerate(self.EDITOR_TEXTS):
+                x = self.EDITOR_TEXTS_X[text_num] + x_offset
+                y = self.EDITOR_TEXTS_Y[text_num] + y_offset
+                if self.editor_button - 1 == text_num:
+                    y += 3
+                surface.blit(text, (x, y))
 
     def level_center(self, level_num):
         course_num = level_num // LEVELS_PER_COURSE
@@ -438,6 +608,15 @@ class MenuScreen:
         y += constants.FULL_MIDDLE[1]
 
         return int(x), int(y)
+
+    def editor_level_center(self, level_num):
+        if LAST_LEVEL < level_num <= self.last_editor_level:
+            column = (level_num - LAST_LEVEL - 1) % self.EDITOR_LEVELS_IN_ROW
+            row = (level_num - LAST_LEVEL - 1) // self.EDITOR_LEVELS_IN_ROW
+            x = self.EDITOR_LEFT + self.EDITOR_HORIZONTAL_SPACING * column
+            y = self.EDITOR_TOP + self.EDITOR_VERTICAL_SPACING * row
+
+            return x, y
 
     def touching_level(self, point):
         distance = geometry.distance(constants.FULL_MIDDLE, point)
@@ -468,6 +647,27 @@ class MenuScreen:
             return level
         return -1
 
+    def touching_editor_level(self, position):
+        column = (position[0] - self.EDITOR_LEFT)
+        column += self.EDITOR_HORIZONTAL_SPACING // 2
+        column //= self.EDITOR_HORIZONTAL_SPACING
+
+        row = (position[1] - self.EDITOR_TOP)
+        row += self.EDITOR_VERTICAL_SPACING // 2
+        row //= self.EDITOR_VERTICAL_SPACING
+
+        level = row * self.EDITOR_LEVELS_IN_ROW + column + LAST_LEVEL + 1
+
+        point1 = self.editor_level_center(level)
+        if not point1:
+            return -1
+        point2 = position
+
+        if geometry.distance(point1, point2) <= self.BUTTON_RADIUS:
+            return level
+        else:
+            return -1
+
     def init_grow_course(self):
         previous_course = (last_unlocked - 2) // 18
         self.grow_course = True
@@ -481,26 +681,29 @@ class MenuScreen:
 
     def update_menu_buttons(self):
         # Detect collision with mouse
-        mouse_x, mouse_y = events.mouse.position
-        top = self.ARROW_Y + self.arrow_y_offset
-        bottom = self.ARROW_Y + self.ARROW_HEIGHT + self.arrow_y_offset
+        if self.changing_page:
+            self.mouse_arrow = 0
+        else:
+            mouse_x, mouse_y = events.mouse.position
+            top = self.ARROW_Y + self.arrow_y_offset
+            bottom = self.ARROW_Y + self.ARROW_HEIGHT + self.arrow_y_offset
 
-        if top < mouse_y < bottom:
-            left_left = self.LEFT_ARROW_X
-            left_right = self.LEFT_ARROW_X + self.ARROW_WIDTH
+            if top < mouse_y < bottom:
+                left_left = self.LEFT_ARROW_X
+                left_right = self.LEFT_ARROW_X + self.ARROW_WIDTH
 
-            right_left = self.RIGHT_ARROW_X
-            right_right = self.RIGHT_ARROW_X + self.ARROW_WIDTH
+                right_left = self.RIGHT_ARROW_X
+                right_right = self.RIGHT_ARROW_X + self.ARROW_WIDTH
 
-            if self.page != 0 and left_left < mouse_x < left_right:
-                self.mouse_arrow = self.LEFT
-            elif self.page != 2 and right_left < mouse_x < right_right:
-                self.mouse_arrow = self.RIGHT
+                if self.page != 0 and left_left < mouse_x < left_right:
+                    self.mouse_arrow = self.LEFT
+                elif self.page != 2 and right_left < mouse_x < right_right:
+                    self.mouse_arrow = self.RIGHT
+                else:
+                    self.mouse_arrow = 0
+
             else:
                 self.mouse_arrow = 0
-
-        else:
-            self.mouse_arrow = 0
 
         # Bob up and down
         self.arrow_y_offset = 2.9 * math.sin(3 * math.pi / 180 * self.arrow_frame)
@@ -544,6 +747,8 @@ class PlayScreen:
 
     AIMER_LAYERS = 4
 
+    RESTART_DELAY = 90
+
     def __init__(self):
         self.level = None
         self.slowmo_factor = 1.0  # the coefficient of time-slow.
@@ -563,6 +768,19 @@ class PlayScreen:
         self.end_ball = None
 
         self.unlocked = True
+
+        restart_text = graphics.textify("Press R to restart.")
+        exit_text = graphics.textify("Press ESC to exit.")
+        self.restart_text = graphics.new_surface((restart_text.get_width(), 50))
+        self.restart_text.blit(restart_text, (0, 0))
+        self.restart_text.blit(exit_text, (5, 21))
+        self.restart_cover = pygame.Surface(self.restart_text.get_size())
+        self.restart_cover.fill(constants.BLACK)
+
+        self.restart_timer = 0
+        self.restart_alpha = 0
+        self.RESTART_X = (FULL_WIDTH - self.restart_text.get_width()) // 2 + 3
+        self.RESTART_Y = SCREEN_TOP + levels.PIXEL_HEIGHT + 10
 
     def update(self):
         mouse = events.mouse
@@ -599,6 +817,7 @@ class PlayScreen:
             self.pause_exit = True
             self.end_ball = self.players[0]
 
+        greatest_speed = 0.0
         ball_index = len(self.balls)
         for ball_ in reversed(self.balls):
             ball_index -= 1
@@ -612,7 +831,37 @@ class PlayScreen:
                         self.transition = True
                         self.end_ball = ball_
 
+                        if ball_.shell_type == ball.GHOST:
+                            instrument = sound.ghost_instrument
+                        elif ball_.shell_type == ball.FLOAT:
+                            instrument = sound.float_instrument
+                        else:
+                            instrument = sound.normal_instrument
+
+                        instrument.play(sound.CS3, 0.6)
+
                 ball_.update_body(self.slowmo_factor)
+
+                velocity = (ball_.x_velocity, ball_.y_velocity)
+                greatest_speed = max(greatest_speed, geometry.magnitude(velocity))
+
+        player_shells = 0
+        for player in self.players:
+            player_shells += len(player.containing_shells)
+
+        if greatest_speed < 1.0 and player_shells == 0:
+            if self.restart_timer < self.RESTART_DELAY:
+                self.restart_timer += 1
+            elif self.restart_alpha < 255:
+                self.restart_alpha += 20
+
+                if self.restart_alpha > 255:
+                    self.restart_alpha = 255
+
+                self.restart_cover.set_alpha(255 - self.restart_alpha)
+
+        else:
+            self.restart_timer = 0
 
         if not self.unlocked:
             if self.level.pressed_buttons == self.level.total_buttons:
@@ -620,6 +869,26 @@ class PlayScreen:
                 self.level.draw_debug_start_end(self.block_surface, (0, 0))
 
         graphics.update_ripples(self.slowmo_factor)
+
+    def draw(self, surface, offset=(0, 0)):
+        x = SCREEN_LEFT + offset[0]
+        y = SCREEN_TOP + offset[1]
+        surface.blit(self.block_surface, (x, y))
+        self.level.draw_debug_layer(surface, levels.LAYER_BUTTONS, (x, y))
+
+        if self.restart_timer >= self.RESTART_DELAY:
+            restart_x = self.RESTART_X + offset[0]
+            restart_y = self.RESTART_Y + offset[1]
+            surface.blit(self.restart_text, (restart_x, restart_y))
+            surface.blit(self.restart_cover, (restart_x, restart_y))
+
+        graphics.draw_ripples(surface, offset)
+
+        if events.mouse.held and self.players[0].containing_shells:
+            self.draw_aimers(surface, offset)
+
+        for ball_ in self.balls:
+            ball_.draw_debug(surface, (x, y))
 
     def shoot_balls(self, position):
         """Shoots all player balls towards a specific position."""
@@ -660,20 +929,6 @@ class PlayScreen:
             self.players.append(player)
             self.balls.append(player)
 
-    def draw(self, surface, offset=(0, 0)):
-        x = SCREEN_LEFT + offset[0]
-        y = SCREEN_TOP + offset[1]
-        surface.blit(self.block_surface, (x, y))
-        self.level.draw_debug_layer(surface, levels.LAYER_BUTTONS, (x, y))
-
-        graphics.draw_ripples(surface, offset)
-
-        if events.mouse.held and self.players[0].containing_shells:
-            self.draw_aimers(surface, offset)
-
-        for ball_ in self.balls:
-            ball_.draw_debug(surface, (x, y))
-
     def draw_aimers(self, surface, offset=(0, 0)):
         mouse_position = events.mouse.position
         for player in self.players:
@@ -707,6 +962,8 @@ class PlayScreen:
         self.level.pressed_buttons = 0
         self.unlocked = False
         self.level.draw_debug_start_end(self.block_surface, (0, 0))
+        self.restart_alpha = 0
+        self.restart_cover.set_alpha(255)
         if slowmo:
             self.slowmo_factor = self.SLOWMO_MAX
 
@@ -927,7 +1184,15 @@ class LevelTransition:
         self.previous_screen = MENU
         self.next_screen = PLAY
 
-        from_point = main_menu.level_center(main_menu.selected_level)
+        if main_menu.selected_level < LAST_LEVEL:
+            from_point = main_menu.level_center(main_menu.selected_level)
+
+            menu_course = main_menu.selected_level // LEVELS_PER_COURSE
+            self.color = ball.SHELL_DEBUG_COLORS[menu_course + 1]
+        else:
+            from_point = main_menu.editor_level_center(main_menu.selected_level)
+            self.color = ball.SHELL_DEBUG_COLORS[ball.CENTER]
+
         to_point = levels.middle_pixel(level.start_tile)
         to_point = graphics.screen_position(to_point)
 
@@ -935,9 +1200,6 @@ class LevelTransition:
         self.x_change = (to_point[0] - from_point[0]) / length
         self.y_change = (to_point[1] - from_point[1]) / length
         self.center = from_point
-
-        menu_course = main_menu.selected_level // LEVELS_PER_COURSE
-        self.color = ball.SHELL_DEBUG_COLORS[menu_course + 1]
 
         self.shell_count = 0
 
@@ -1011,6 +1273,9 @@ def check_level_menu_transition():
     if play_screen.level_num == LAST_LEVEL:
         return True
 
+    if play_screen.level_num + 1 == main_menu.last_editor_level:
+        return True
+
     return False
 
 
@@ -1038,6 +1303,7 @@ LOGO_NAME_Y = LOGO_BIRD_Y - 12
 graphics.fader.set_alpha(0)
 graphics.fader.fade_to(255)
 sound.intro_jingle.play()
+
 for frame in range(270):
     events.update()
 
@@ -1072,11 +1338,19 @@ while True:
 
             if check_level_menu_transition():
                 if play_screen.pause_exit:
-                    main_menu.page = main_menu.LEVEL_SELECT
-                    transition.init_level_to_menu()
+                    if play_screen.level_num < LAST_LEVEL:
+                        main_menu.page = main_menu.LEVEL_SELECT
+                        transition.init_level_to_menu()
+                    else:
+                        main_menu.page = main_menu.LEVEL_EDITOR
+                        transition.init_level_to_menu()
 
                 else:
-                    if play_screen.level_num == LAST_LEVEL:
+                    if play_screen.level_num > LAST_LEVEL:
+                        main_menu.page = main_menu.LEVEL_EDITOR
+                        transition.init_level_to_menu()
+
+                    elif play_screen.level_num == LAST_LEVEL:
                         main_menu.show_credits = True
                         main_menu.page = main_menu.LEVEL_SELECT
                         transition.init_level_to_menu()
@@ -1090,7 +1364,7 @@ while True:
 
             if not play_screen.pause_exit:
                 if last_unlocked < play_screen.level_num + 1:
-                    if play_screen.level_num - 1 != LAST_LEVEL:
+                    if play_screen.level_num - 1 < LAST_LEVEL:
                         last_unlocked = play_screen.level_num + 1
                         save_data = open("Easily Editable Save Data.txt", 'w')
                         save_data.write(str(last_unlocked) + "\n")
@@ -1145,6 +1419,7 @@ while True:
     debug.debug(current_screen)
     debug.debug(main_menu.grow_frame)
     debug.debug(main_menu.mouse_arrow)
+    debug.debug(main_menu.mouse_level)
     debug.draw(final_display)
 
     # if events.mouse.held:

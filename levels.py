@@ -100,6 +100,20 @@ def load_level(level_num):
     return level
 
 
+def delete_level(level_num):
+    file = open("levels.txt", 'r')
+    level_array = file.read().split(LEVEL_SEPARATOR)
+    file.close()
+
+    del level_array[level_num]
+
+    string = LEVEL_SEPARATOR.join(level_array)
+
+    file = open("levels.txt", 'w')
+    file.write(string)
+    file.close()
+
+
 def load_all_block_layers():
     """Returns a list containing the block layer of every level.  Used in the
     main menu to draw level thumbnails in the center of the level select.

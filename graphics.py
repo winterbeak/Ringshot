@@ -358,8 +358,12 @@ font_uppercase_black = load_image("uppercase_black")
 font_lowercase_black = load_image("lowercase_black")
 font_symbols_black = load_image("symbols_black")
 
-valid_symbols = ('!', ',', '.', '?')  # in order of appearance in the image
+# these are in order of appearance in the image
+valid_symbols = ('!', ',', '.', '?', '/', "'")
 valid_symbols_ascii = [ord(symbol) for symbol in valid_symbols]
+
+char_width = 9
+char_spacing = int(char_width + char_width / 9 * 2)
 
 
 def textify(string, black=False, multiplier=1):
@@ -374,7 +378,7 @@ def textify(string, black=False, multiplier=1):
         lowercase = font_lowercase
         symbols = font_symbols
 
-    text_width = 9
+    text_width = char_width
     if multiplier != 1:
         numbers = scale(numbers, multiplier)
         uppercase = scale(uppercase, multiplier)
@@ -382,11 +386,9 @@ def textify(string, black=False, multiplier=1):
         symbols = scale(symbols, multiplier)
         text_width *= multiplier
 
-    text_spacing = int(text_width + text_width / 9 * 2)
-
-    text_surface = new_surface((len(string) * text_spacing, 21))
+    text_surface = new_surface((len(string) * char_spacing, 21))
     for index, character in enumerate(string):
-        position = (index * text_spacing, 0)
+        position = (index * char_spacing, 0)
 
         ascii_value = ord(character)
         if 48 <= ascii_value <= 57:
@@ -411,3 +413,21 @@ def textify(string, black=False, multiplier=1):
             text_surface.blit(symbols, position, rect)
 
     return text_surface
+
+
+def text_wall(list_of_strings):
+    max_length = 0
+    for string in list_of_strings:
+        max_length = max(max_length, len(string))
+
+    width = max_length * char_spacing
+    height = len(list_of_strings) * 21
+    final_surface = new_surface((width, height))
+
+    for string_num, string in enumerate(list_of_strings):
+        text_surface = textify(string)
+        x = (width - text_surface.get_width()) // 2
+        y = string_num * 21
+        final_surface.blit(text_surface, (x, y))
+
+    return final_surface

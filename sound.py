@@ -75,6 +75,8 @@ def update():
     float_scale = float_scales[scale_num]
     button_note = button_note_indexes[scale_num]
 
+    volume_control.update()
+
     # ghost_volume = music_position % 2000
     # ghost_volume = -0.125 * math.sin((0.18 * math.pi / 180) * ghost_volume) + 0.75
     #
@@ -105,7 +107,7 @@ def load(string):
 def play(sound, volume=1.0):
     channel = pygame.mixer.find_channel()
     if channel:
-        channel.set_volume(volume)
+        channel.set_volume(volume * volume_control.volume)
         channel.play(sound)
 
 
@@ -129,6 +131,38 @@ def load_strings(path, strings):
     """
     paths = [path % string for string in strings]
     return SoundSet(paths)
+
+
+class VolumeControl:
+    def __init__(self):
+        self.volume = 1.0
+        self.target_volume = 1.0
+        self.fade_speed = 0.05
+
+    def set_volume(self, volume):
+        self.volume = volume
+        self.target_volume = volume
+
+    def fade_to(self, volume):
+        self.target_volume = volume
+
+    def update(self):
+        if self.volume < self.target_volume:
+            self.volume += self.fade_speed
+
+            if self.volume > self.target_volume:
+                self.volume = self.target_volume
+
+        elif self.volume > self.target_volume:
+            self.volume -= self.fade_speed
+
+            if self.volume < self.target_volume:
+                self.volume = self.target_volume
+
+        set_music_volume(self.volume * MUSIC_VOLUME)
+
+
+volume_control = VolumeControl()
 
 
 class SoundSet:
@@ -327,6 +361,7 @@ button_notes.set_sound_limit(4, 30)
 
 intro_jingle = load("intro_jingle")
 
+MUSIC_VOLUME = 0.3
 load_music("music")
 set_music_volume(0.3)
 
