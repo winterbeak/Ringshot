@@ -14,6 +14,7 @@ import debug
 
 import ball
 import levels
+import editor
 
 
 def screen_update(fps):
@@ -37,7 +38,7 @@ SCREEN_WIDTH = constants.SCREEN_WIDTH
 SCREEN_HEIGHT = constants.SCREEN_HEIGHT
 
 pygame.init()
-final_display = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+final_display = pygame.display.set_mode(FULL_SIZE)
 
 clock = pygame.time.Clock()
 
@@ -128,7 +129,7 @@ class MenuScreen:
     EDITOR_TOP = (FULL_HEIGHT - EDITOR_HEIGHT) // 2
 
     EDITOR_THUMBNAIL_X = SCREEN_LEFT + 50
-    EDITOR_THUMBNAIL_Y = SCREEN_TOP + SCREEN_HEIGHT - 100
+    EDITOR_THUMBNAIL_Y = SCREEN_TOP + SCREEN_HEIGHT - 190
 
     PLAY = 1
     EDIT = 2
@@ -147,24 +148,33 @@ class MenuScreen:
                                               EDITOR_TEXTS[text].get_width(),
                                               EDITOR_TEXTS[text].get_height()))
 
-    CREDITS_TEXT = ("Made entirely with Python and Pygame",
-                    "in about a month's time.",
-                    "",
-                    "Source code can be found at",
-                    "github.com/snowdozer/ringshot.",
-                    "",
-                    "Font made by me.",
-                    "",
-                    "All sounds created with Ableton Live",
-                    "Lite 9's royalty free libraries.",
-                    "",
-                    "Shout outs to Mystery Tournament 14,",
-                    "and also to my friends for testing this.")
+    EDITOR_NOTE_STRINGS = ("To load other's levels, simply",
+                           "replace your levels.txt with theirs.",
+                           "Note that this will overwrite",
+                           "all your current levels.")
+    EDITOR_NOTE_TEXT = graphics.text_wall(EDITOR_NOTE_STRINGS)
+    EDITOR_NOTE_X = SCREEN_LEFT
+    EDITOR_NOTE_X += (SCREEN_WIDTH - EDITOR_NOTE_TEXT.get_width()) // 2
+    EDITOR_NOTE_Y = EDITOR_THUMBNAIL_Y + 100
+
+    CREDITS_STRINGS = ("Made entirely with Python and Pygame",
+                       "in about a month's time.",
+                       "",
+                       "Source code can be found at",
+                       "github.com/snowdozer/ringshot.",
+                       "",
+                       "Font made by me.",
+                       "",
+                       "All sounds created with Ableton Live",
+                       "Lite 9's royalty free libraries.",
+                       "",
+                       "Shout outs to Mystery Tournament 14,",
+                       "and also to my friends for testing this.")
 
     CREDITS_SUBTITLE = graphics.load_image("credits_subtitle")
 
-    CREDITS_TEXT_SURFACE = graphics.text_wall(CREDITS_TEXT)
-    CREDITS_X = (FULL_WIDTH - CREDITS_TEXT_SURFACE.get_width()) // 2
+    CREDITS_TEXT = graphics.text_wall(CREDITS_STRINGS)
+    CREDITS_X = (FULL_WIDTH - CREDITS_TEXT.get_width()) // 2
     CREDITS_Y = FULL_HEIGHT // 2 - 10
 
     CREDITS_SUBTITLE_X = (FULL_WIDTH - CREDITS_SUBTITLE.get_width()) // 2
@@ -221,8 +231,13 @@ class MenuScreen:
 
         self.volume_text = graphics.textify("Volume")
 
+        self.switch_to_editor = False
         self.last_editor_level = levels.count_levels()
         self.editor_button = 0
+
+        self.editor_note_cover = pygame.Surface(self.EDITOR_NOTE_TEXT.get_size())
+        self.editor_note_cover.fill(constants.BLACK)
+        self.in_transition = False
 
     def update(self):
         if self.exit_fading and graphics.fader.alpha == 0:
@@ -232,8 +247,9 @@ class MenuScreen:
             self.exit_fade_delay += 1
 
         if events.keys.pressed_key == pygame.K_ESCAPE:
-            graphics.fader.fade_to(0)
-            sound.volume_control.fade_to(0.0)
+            if not self.disable_clicking:
+                graphics.fader.fade_to(0)
+                sound.volume_control.fade_to(0.0)
 
         self.update_menu_buttons()
 
@@ -345,7 +361,7 @@ class MenuScreen:
                 self.switch_to_level = True
 
             elif self.editor_button == self.EDIT:
-                pass
+                self.switch_to_editor = True
 
             elif self.editor_button == self.DELETE:
                 levels.delete_level(self.selected_level)
@@ -541,7 +557,7 @@ class MenuScreen:
     def draw_credits_options(self, surface, x_offset=0, y_offset=0):
         x = self.CREDITS_X + x_offset
         y = self.CREDITS_Y + y_offset
-        surface.blit(self.CREDITS_TEXT_SURFACE, (x, y))
+        surface.blit(self.CREDITS_TEXT, (x, y))
 
         x = self.CREDITS_SUBTITLE_X + x_offset
         y = self.CREDITS_SUBTITLE_Y + y_offset
@@ -593,6 +609,14 @@ class MenuScreen:
                 if self.editor_button - 1 == text_num:
                     y += 3
                 surface.blit(text, (x, y))
+
+        x = self.EDITOR_NOTE_X + x_offset
+        y = self.EDITOR_NOTE_Y + y_offset
+        surface.blit(self.EDITOR_NOTE_TEXT, (x, y))
+
+        if self.in_transition and self.arrow_alpha < 255:
+            self.editor_note_cover.set_alpha(255 - self.arrow_alpha)
+            surface.blit(self.editor_note_cover, (x, y))
 
     def level_center(self, level_num):
         course_num = level_num // LEVELS_PER_COURSE
@@ -781,6 +805,8 @@ class PlayScreen:
         self.restart_alpha = 0
         self.RESTART_X = (FULL_WIDTH - self.restart_text.get_width()) // 2 + 3
         self.RESTART_Y = SCREEN_TOP + levels.PIXEL_HEIGHT + 10
+
+        self.in_editor = False
 
     def update(self):
         mouse = events.mouse
@@ -1289,6 +1315,7 @@ transition = LevelTransition()
 MENU = 0
 PLAY = 1
 TRANSITION = 2
+EDITOR = 3
 # play_screen.load_level(24)
 current_screen = MENU  # change back to MENU later
 
@@ -1302,22 +1329,22 @@ LOGO_NAME_Y = LOGO_BIRD_Y - 12
 
 graphics.fader.set_alpha(0)
 graphics.fader.fade_to(255)
-sound.intro_jingle.play()
-
-for frame in range(270):
-    events.update()
-
-    final_display.blit(logo_bird.get_now_frame(), (LOGO_BIRD_X, LOGO_BIRD_Y))
-    final_display.blit(logo_name, (LOGO_NAME_X, LOGO_NAME_Y))
-
-    logo_bird.delay_next(9)
-
-    if frame == 225:
-        graphics.fader.fade_to(0)
-
-    graphics.fader.update()
-    graphics.fader.draw(final_display)
-    screen_update(60)
+# sound.intro_jingle.play()
+#
+# for frame in range(270):
+#     events.update()
+#
+#     final_display.blit(logo_bird.get_now_frame(), (LOGO_BIRD_X, LOGO_BIRD_Y))
+#     final_display.blit(logo_name, (LOGO_NAME_X, LOGO_NAME_Y))
+#
+#     logo_bird.delay_next(9)
+#
+#     if frame == 225:
+#         graphics.fader.fade_to(0)
+#
+#     graphics.fader.update()
+#     graphics.fader.draw(final_display)
+#     screen_update(60)
 
 # Game loop
 graphics.fader.fade_to(255)
@@ -1332,8 +1359,14 @@ while True:
         play_screen.update()
         play_screen.draw(final_display)
 
-        if play_screen.transition:
+        if play_screen.transition and play_screen.in_editor:
             play_screen.transition = False
+            play_screen.in_editor = False
+            current_screen = EDITOR
+
+        elif play_screen.transition:
+            play_screen.transition = False
+
             current_screen = TRANSITION
 
             if check_level_menu_transition():
@@ -1384,12 +1417,21 @@ while True:
                 main_menu.cover_title(final_display)
 
         if main_menu.switch_to_level:
-            main_menu.disable_clicking = True
             main_menu.switch_to_level = False
+            main_menu.disable_clicking = True
+
             main_menu.mouse_level = -1
             current_screen = TRANSITION
 
             transition.init_menu_to_level()
+
+        elif main_menu.switch_to_editor:
+            main_menu.switch_to_editor = False
+            main_menu.in_transition = True
+
+            editor.editor.load_level(main_menu.selected_level)
+            editor.editor.init_editor_ui()
+            current_screen = EDITOR
 
     elif current_screen == TRANSITION:
         transition.update()
@@ -1411,6 +1453,29 @@ while True:
                 main_menu.disable_clicking = False
                 main_menu.show_arrows = True
             graphics.clear_ripples()
+
+    elif current_screen == EDITOR:
+        editor.editor.update()
+        editor.editor.draw(final_display)
+
+        if editor.editor.switch_to_menu:
+            editor.editor.switch_to_menu = False
+            editor.editor.undos = []
+
+            main_menu.block_layers[main_menu.selected_level] = editor.editor.level.layers[levels.LAYER_BLOCKS]
+            main_menu.selected_level = -1
+
+            current_screen = MENU
+
+        elif editor.editor.switch_to_player:
+            editor.editor.switch_to_player = False
+            editor.editor.undos = []
+            editor.editor.reset_changes_grid()
+
+            play_screen.load_level(main_menu.selected_level)
+            play_screen.in_editor = True
+
+            current_screen = PLAY
 
     graphics.fader.update()
     graphics.fader.draw(final_display)

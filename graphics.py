@@ -74,12 +74,12 @@ def border(surface, color, thickness):
 
 
 def draw_grid(surface, color, columns, rows, cell_width, cell_height):
-    for row in range(rows):
+    for row in range(rows + 1):
         start = (0, row * cell_height - 1)
         end = (columns * cell_width, row * cell_height - 1)
         pygame.draw.line(surface, color, start, end, 2)
 
-    for column in range(columns):
+    for column in range(columns + 1):
         start = (column * cell_width - 1, 0)
         end = (column * cell_width - 1, rows * cell_height)
         pygame.draw.line(surface, color, start, end, 2)

@@ -21,6 +21,11 @@ clock = pygame.time.Clock()
 
 TAHOMA = pygame.font.SysFont("Tahoma", 10)
 
+TAB_TEXT = graphics.text_wall(("Tab to", "swap"))
+
+offset_x = constants.FULL_MIDDLE_INT[0] - (SCREEN_WIDTH // 2)
+offset_y = constants.FULL_MIDDLE_INT[1] - (SCREEN_HEIGHT // 2)
+
 
 def screen_update():
     pygame.display.flip()
@@ -47,7 +52,8 @@ class Button:
         self.selected = False
 
     def touches_point(self, point):
-        if self.rect.collidepoint(point[0], point[1]):
+        rect = pygame.Rect(self.x + offset_x, self.y + offset_y, self.w, self.h)
+        if rect.collidepoint(point[0], point[1]):
             return True
         return False
 
@@ -56,9 +62,13 @@ class Button:
             self.highlight = True
 
         if not self.hidden:
+            x = self.x + offset_x
+            y = self.y + offset_y
+            w = self.w
+            h = self.h
             if self.highlight:
-                pygame.draw.rect(surface, self.HIGHLIGHT_COLOR, self.rect)
-            surface.blit(self.sprite, (self.x, self.y))
+                pygame.draw.rect(surface, self.HIGHLIGHT_COLOR, (x, y, w, h))
+            surface.blit(self.sprite, (x, y))
 
 
 class ButtonSet:
@@ -78,6 +88,7 @@ class ButtonSet:
 
     def update(self):
         touching_a_button = False
+
         for button_id, button in enumerate(self.buttons):
             button_touches = button.touches_point(events.mouse.position)
             if button_touches and not button.hidden:
@@ -352,16 +363,19 @@ class Editor:
         self.ui_surface = graphics.new_surface(SCREEN_SIZE)
 
         self.SAVE_AND_EXIT = 0
-        self.ADD_SHELL = 1
-        self.REMOVE_SHELL = 2
-        self.FIRST_SHELL_BUTTON = 3
+        self.SAVE_AND_PLAY = 1
+        self.ADD_SHELL = 2
+        self.REMOVE_SHELL = 3
+        self.FIRST_SHELL_BUTTON = 4
 
         buttons = ButtonSet()
         buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
+        buttons.add(small_button((50, SCREEN_HEIGHT - 40)))
         buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 230)))
         buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 200)))
 
         buttons.draw_arrow(self.SAVE_AND_EXIT, buttons.ARROW_LEFT)
+        buttons.draw_arrow(self.SAVE_AND_PLAY, buttons.ARROW_RIGHT)
         buttons.draw_plus(self.ADD_SHELL)
         buttons.draw_minus(self.REMOVE_SHELL)
 
@@ -371,6 +385,7 @@ class Editor:
         self.placing_end = False
 
         self.switch_to_menu = False
+        self.switch_to_player = False
 
     def load_level(self, level_num):
         self.level_num = level_num
@@ -421,6 +436,12 @@ class Editor:
 
                 return
 
+            elif mouse_button == self.SAVE_AND_PLAY:
+                levels.save_level(self.level_num, self.level)
+                self.switch_to_player = True
+
+                return
+
             elif mouse_button == self.ADD_SHELL:
                 if len(self.level.start_shells) <= ball.MAX_SHELLS:
                     self.add_shell()
@@ -445,15 +466,17 @@ class Editor:
 
         if events.mouse.held:
             if not self.selected_single_place():
-                mouse_tile = levels.grid_tile_position(events.mouse.position)
+                mouse_x = events.mouse.position[0] - offset_x
+                mouse_y = events.mouse.position[1] - offset_y
+                mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
                 if mouse_tile != self.level.start_tile:
                     if mouse_tile != self.level.end_tile:
                         self.change_tile_at_mouse()
 
     def draw(self, surface):
-        surface.blit(self.ui_surface, (0, 0))
+        surface.blit(self.ui_surface, (offset_x, offset_y))
         self.draw_toolbox_selection(surface)
-        surface.blit(self.level_surface, (0, 0))
+        surface.blit(self.level_surface, (offset_x, offset_y))
         self.draw_mouse_tile(surface)
         self.buttons.draw(surface)
 
@@ -468,7 +491,9 @@ class Editor:
         return False
 
     def change_start(self):
-        mouse_tile = levels.grid_tile_position(events.mouse.position)
+        mouse_x = events.mouse.position[0] - offset_x
+        mouse_y = events.mouse.position[1] - offset_y
+        mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
         if not mouse_tile:
             return
 
@@ -481,7 +506,9 @@ class Editor:
         pygame.draw.rect(self.level_surface, levels.DEBUG_START_COLOR, rect)
 
     def change_end(self):
-        mouse_tile = levels.grid_tile_position(events.mouse.position)
+        mouse_x = events.mouse.position[0] - offset_x
+        mouse_y = events.mouse.position[1] - offset_y
+        mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
         if not mouse_tile:
             return
 
@@ -503,6 +530,10 @@ class Editor:
         graphics.draw_tile_grid(self.ui_surface, (30, 30, 30))
         self.draw_toolbox(self.ui_surface)
         self.update_shell_picker(self.ui_surface)
+
+        tab_x = self.TOOLBOX_LEFT - TAB_TEXT.get_width() - 20
+        tab_y = self.TOOLBOX_TOP + 3
+        self.ui_surface.blit(TAB_TEXT, (tab_x, tab_y))
 
     def draw_toolbox(self, surface):
         # draws tiles
@@ -530,7 +561,9 @@ class Editor:
         layer = self.selected_layer
 
         layer_x = self.TOOLBOX_LEFT - 6
+        layer_x += offset_x
         layer_y = self.TOOLBOX_TOP - 6 + self.selected_layer * tile_height
+        layer_y += offset_y
         layer_w = levels.LAYER_ID_COUNTS[layer] * tile_width + 6
         layer_h = constants.TILE_HEIGHT + 11
         layer_rect = (layer_x, layer_y, layer_w, layer_h)
@@ -604,15 +637,23 @@ class Editor:
 
     def draw_mouse_tile(self, surface):
         """Draws the tile that the mouse is holding, onto the editor grid."""
-        mouse_position = events.mouse.position
+        mouse_x, mouse_y = events.mouse.position
+        mouse_x -= offset_x
+        mouse_y -= offset_y
         tile = self.selected_tile
 
-        grid_position = levels.grid_pixel_position(mouse_position)
+        grid_position = levels.grid_pixel_position((mouse_x, mouse_y))
         if grid_position:
-            draw_tile(surface, self.selected_layer, tile, grid_position)
+            x, y = grid_position
+            x += offset_x
+            y += offset_y
+            draw_tile(surface, self.selected_layer, tile, (x, y))
 
     def change_tile_at_mouse(self):
-        grid_position = levels.grid_tile_position(events.mouse.position)
+        mouse_x, mouse_y = events.mouse.position
+        mouse_x -= offset_x
+        mouse_y -= offset_y
+        grid_position = levels.grid_tile_position((mouse_x, mouse_y))
         if grid_position:
             layer = self.selected_layer
             column, row = grid_position
@@ -647,40 +688,40 @@ class Editor:
             self.undos.pop(-1)
 
 
-MENU = 0
-EDITOR = 1
-
-main_menu = MainMenu()
-main_menu.update_level_buttons()
-main_menu.change_page(main_menu.last_page)
+# MENU = 0
+# EDITOR = 1
+#
+# main_menu = MainMenu()
+# main_menu.update_level_buttons()
+# main_menu.change_page(main_menu.last_page)
 
 editor = Editor()
 
-current_screen = MENU
-
-while True:
-    events.update()
-
-    if current_screen == MENU:
-        main_menu.update_frame()
-
-        if main_menu.switch_to_editor:
-            main_menu.switch_to_editor = False
-            current_screen = EDITOR
-
-            editor.load_level(main_menu.selected_level())
-            editor.init_editor_ui()
-
-            main_menu.selected_level_button = -1
-
-    elif current_screen == EDITOR:
-        editor.update()
-        editor.draw(final_display)
-
-        if editor.switch_to_menu:
-            editor.undos = []
-            editor.switch_to_menu = False
-            current_screen = MENU
-            main_menu.update_level_buttons()
-
-    screen_update()
+# current_screen = MENU
+#
+# while True:
+#     events.update()
+#
+#     if current_screen == MENU:
+#         main_menu.update_frame()
+#
+#         if main_menu.switch_to_editor:
+#             main_menu.switch_to_editor = False
+#             current_screen = EDITOR
+#
+#             editor.load_level(main_menu.selected_level())
+#             editor.init_editor_ui()
+#
+#             main_menu.selected_level_button = -1
+#
+#     elif current_screen == EDITOR:
+#         editor.update()
+#         editor.draw(final_display)
+#
+#         if editor.switch_to_menu:
+#             editor.undos = []
+#             editor.switch_to_menu = False
+#             current_screen = MENU
+#             main_menu.update_level_buttons()
+#
+#     screen_update()
