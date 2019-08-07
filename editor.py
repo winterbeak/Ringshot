@@ -363,6 +363,9 @@ class Editor:
     SHELLS_SPACING = 30
     SHELLS_CENTER = SCREEN_WIDTH - 50
 
+    EXIT_TEXT = graphics.text_wall(("Save and", "exit"))
+    PLAY_TEXT = graphics.text_wall(("Save and", "play"))
+
     def __init__(self):
         self.undos = []
         self.changed = False
@@ -385,7 +388,7 @@ class Editor:
         self.FIRST_SHELL_BUTTON = 4
 
         buttons = ButtonSet()
-        buttons.add(small_button((20, SCREEN_HEIGHT - 40)))
+        buttons.add(small_button((10, SCREEN_HEIGHT - 40)))
         buttons.add(small_button((50, SCREEN_HEIGHT - 40)))
         buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 230)))
         buttons.add(small_button((SCREEN_WIDTH - 65, SCREEN_HEIGHT - 200)))
@@ -501,6 +504,16 @@ class Editor:
         surface.blit(self.level_surface, (offset_x, offset_y))
         self.draw_mouse_tile(surface)
         self.buttons.draw(surface)
+
+        if self.buttons.touch_mouse == self.SAVE_AND_EXIT:
+            x = offset_x + 5
+            y = offset_y + SCREEN_HEIGHT - 88
+            surface.blit(self.EXIT_TEXT, (x, y))
+
+        elif self.buttons.touch_mouse == self.SAVE_AND_PLAY:
+            x = offset_x + 5
+            y = offset_y + SCREEN_HEIGHT - 88
+            surface.blit(self.PLAY_TEXT, (x, y))
 
     def selected_single_place(self):
         """Returns whether the current tile is a tile which is placed only
@@ -633,7 +646,7 @@ class Editor:
         self.update_shell_picker(self.ui_surface)
 
     def update_shell_picker(self, surface):
-        cover_rect = (SCREEN_WIDTH - 100, 0, 100, SCREEN_HEIGHT - 100)
+        cover_rect = (SCREEN_WIDTH - 100, 0, 100, SCREEN_HEIGHT - 150)
         pygame.draw.rect(surface, constants.BLACK, cover_rect)
 
         self.buttons.slice_to(self.FIRST_SHELL_BUTTON)
