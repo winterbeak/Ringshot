@@ -38,6 +38,7 @@ SCREEN_WIDTH = constants.SCREEN_WIDTH
 SCREEN_HEIGHT = constants.SCREEN_HEIGHT
 
 pygame.init()
+pygame.display.set_caption("Ringshot")
 final_display = pygame.display.set_mode(FULL_SIZE)
 
 clock = pygame.time.Clock()
@@ -134,6 +135,14 @@ class MenuScreen:
     PLAY = 1
     EDIT = 2
     DELETE = 3
+    ADD = 4
+    LEVEL_LEFT = 5
+    LEVEL_RIGHT = 6
+
+    ADD_TEXT = graphics.textify("Add")
+    ADD_WIDTH = ADD_TEXT.get_width()
+    ADD_HEIGHT = ADD_TEXT.get_height()
+    EDITOR_ARROW_SIZE = 10
 
     EDITOR_TEXTS = (graphics.textify("Play"), graphics.textify("Edit"),
                     graphics.textify("Delete"))
@@ -168,7 +177,7 @@ class MenuScreen:
                        "All sounds created with Ableton Live",
                        "Lite 9's royalty free libraries.",
                        "",
-                       "Shout outs to Mystery Tournament 14,",
+                       "Shoutouts to Mystery Tournament 14,",
                        "and also to my friends for testing this.")
 
     CREDITS_SUBTITLE = graphics.load_image("credits_subtitle")
@@ -233,6 +242,18 @@ class MenuScreen:
 
         self.switch_to_editor = False
         self.last_editor_level = levels.count_levels()
+
+        self.add_x = 0.0
+        self.add_y = 0.0
+        self.add_rect = None
+        self.editor_left_x = 0.0
+        self.editor_left_y = 0.0
+        self.editor_left_rect = None
+        self.editor_right_x = 0.0
+        self.editor_right_y = 0.0
+        self.editor_right_rect = None
+        self.update_add_level()
+
         self.editor_button = 0
 
         self.editor_note_cover = pygame.Surface(self.EDITOR_NOTE_TEXT.get_size())
@@ -311,28 +332,27 @@ class MenuScreen:
             elif self.page == self.LEVEL_EDITOR:
                 mouse_level = self.touching_editor_level(events.mouse.position)
 
-                if mouse_level < self.last_editor_level:
+                if LAST_LEVEL < mouse_level < self.last_editor_level:
                     self.mouse_level = mouse_level
 
                     if mouse_level != -1 and not self.disable_clicking:
                         if self.previous_frame_mouse_level != mouse_level:
                             sound.normal_scale.play_random()
+                else:
+                    self.mouse_level = -1
 
         else:
             self.mouse_level = -1
 
         if self.page == self.LEVEL_EDITOR and not self.disable_clicking:
-            mouse_x = events.mouse.position[0]
-            mouse_y = events.mouse.position[1]
+            self.editor_button = self.detect_editor_mouse_button()
+            valid = True
 
-            if self.EDITOR_TEXTS_BOXES[0].collidepoint(mouse_x, mouse_y):
-                self.editor_button = self.PLAY
-            elif self.EDITOR_TEXTS_BOXES[1].collidepoint(mouse_x, mouse_y):
-                self.editor_button = self.EDIT
-            elif self.EDITOR_TEXTS_BOXES[2].collidepoint(mouse_x, mouse_y):
-                self.editor_button = self.DELETE
-            else:
-                self.editor_button = 0
+            if self.mouse_level == -1 and self.selected_level == -1:
+                valid = False
+
+            if valid and self.mouse_level != self.previous_frame_mouse_level:
+                self.update_editor_arrows()
 
         if events.mouse.released and not self.disable_clicking:
             if self.mouse_level != -1 and self.mouse_level < last_unlocked:
@@ -366,8 +386,39 @@ class MenuScreen:
             elif self.editor_button == self.DELETE:
                 levels.delete_level(self.selected_level)
                 del self.block_layers[self.selected_level]
-                self.selected_level = -1
+                if self.selected_level == self.last_editor_level - 1:
+                    self.selected_level = -1
+
                 self.last_editor_level -= 1
+                self.update_add_level()
+
+            elif self.editor_button == self.ADD:
+                levels.make_new_level(self.last_editor_level)
+                self.block_layers.append(levels.Layer())
+                self.last_editor_level += 1
+                self.update_add_level()
+
+            elif self.editor_button == self.LEVEL_LEFT:
+                if self.selected_level > LAST_LEVEL + 1:
+                    level = self.selected_level
+                    levels.swap_levels(level, level - 1)
+                    temp = self.block_layers[level]
+                    self.block_layers[level] = self.block_layers[level - 1]
+                    self.block_layers[level - 1] = temp
+
+                    self.selected_level -= 1
+                    self.update_editor_arrows()
+
+            elif self.editor_button == self.LEVEL_RIGHT:
+                if self.selected_level < self.last_editor_level - 1:
+                    level = self.selected_level
+                    levels.swap_levels(level, level + 1)
+                    temp = self.block_layers[level]
+                    self.block_layers[level] = self.block_layers[level + 1]
+                    self.block_layers[level + 1] = temp
+
+                    self.selected_level += 1
+                    self.update_editor_arrows()
 
         if self.changing_page:
             if self.page_frame < self.PAGE_CHANGE_LENGTH:
@@ -595,6 +646,12 @@ class MenuScreen:
 
             surface.blit(text, (x, y))
 
+        x = self.add_x + x_offset
+        y = self.add_y + y_offset
+        if self.editor_button == self.ADD:
+            y += 3
+        surface.blit(self.ADD_TEXT, (x, y))
+
         is_valid_level = 0 <= selected_level < len(self.block_layers)
         if is_valid_level and not thumbnail_disabled:
             layer = self.block_layers[selected_level]
@@ -609,6 +666,20 @@ class MenuScreen:
                 if self.editor_button - 1 == text_num:
                     y += 3
                 surface.blit(text, (x, y))
+
+            x = self.editor_left_x + x_offset
+            y = self.editor_left_y + y_offset
+            if self.editor_button == self.LEVEL_LEFT:
+                y += 3
+            rect = (x, y, self.EDITOR_ARROW_SIZE, self.EDITOR_ARROW_SIZE)
+            graphics.draw_arrow(surface, constants.WHITE, rect, graphics.LEFT)
+
+            x = self.editor_right_x + x_offset
+            y = self.editor_right_y + y_offset
+            if self.editor_button == self.LEVEL_RIGHT:
+                y += 3
+            rect = (x, y, self.EDITOR_ARROW_SIZE, self.EDITOR_ARROW_SIZE)
+            graphics.draw_arrow(surface, constants.WHITE, rect, graphics.RIGHT)
 
         x = self.EDITOR_NOTE_X + x_offset
         y = self.EDITOR_NOTE_Y + y_offset
@@ -634,13 +705,12 @@ class MenuScreen:
         return int(x), int(y)
 
     def editor_level_center(self, level_num):
-        if LAST_LEVEL < level_num <= self.last_editor_level:
-            column = (level_num - LAST_LEVEL - 1) % self.EDITOR_LEVELS_IN_ROW
-            row = (level_num - LAST_LEVEL - 1) // self.EDITOR_LEVELS_IN_ROW
-            x = self.EDITOR_LEFT + self.EDITOR_HORIZONTAL_SPACING * column
-            y = self.EDITOR_TOP + self.EDITOR_VERTICAL_SPACING * row
+        column = (level_num - LAST_LEVEL - 1) % self.EDITOR_LEVELS_IN_ROW
+        row = (level_num - LAST_LEVEL - 1) // self.EDITOR_LEVELS_IN_ROW
+        x = self.EDITOR_LEFT + self.EDITOR_HORIZONTAL_SPACING * column
+        y = self.EDITOR_TOP + self.EDITOR_VERTICAL_SPACING * row
 
-            return x, y
+        return x, y
 
     def touching_level(self, point):
         distance = geometry.distance(constants.FULL_MIDDLE, point)
@@ -749,6 +819,42 @@ class MenuScreen:
             if self.arrow_alpha < 0:
                 self.arrow_alpha = 0
 
+    def update_add_level(self):
+        center = self.editor_level_center(self.last_editor_level)
+        x = center[0] - self.ADD_WIDTH // 2
+        y = center[1] - self.ADD_HEIGHT // 2
+        self.add_x = x
+        self.add_y = y
+        self.add_rect = pygame.Rect(x, y, self.ADD_WIDTH, self.ADD_HEIGHT)
+
+    def update_editor_arrows(self):
+        if self.mouse_level != -1:
+            selected_level = self.mouse_level
+        elif self.selected_level != -1:
+            selected_level = self.selected_level
+        else:
+            return
+
+        center = self.editor_level_center(selected_level)
+        text = graphics.textify(str(selected_level + 1))
+        text_width = text.get_width()
+
+        arrow_size = self.EDITOR_ARROW_SIZE
+        left_x = center[0] - (text_width // 2) - arrow_size - 9
+        left_y = center[1] - arrow_size // 2
+        rect = (left_x, left_y, arrow_size, arrow_size)
+        self.editor_left_x = left_x
+        self.editor_left_y = left_y
+        self.editor_left_rect = pygame.Rect(rect)
+
+        right_x = center[0] + (text_width // 2) + 6
+        right_y = center[1] - arrow_size // 2
+        final_display.blit(text, (0, 0))
+        rect = (right_x, right_y, arrow_size, arrow_size)
+        self.editor_right_x = right_x
+        self.editor_right_y = right_y
+        self.editor_right_rect = pygame.Rect(rect)
+
     def cover_title(self, surface):
         menu_temp_surface.fill(constants.TRANSPARENT)
 
@@ -763,6 +869,28 @@ class MenuScreen:
         menu_temp_surface.set_alpha(circle_alpha)
 
         surface.blit(menu_temp_surface, TOP_LEFT)
+
+    def detect_editor_mouse_button(self):
+        mouse_x = events.mouse.position[0]
+        mouse_y = events.mouse.position[1]
+
+        if self.EDITOR_TEXTS_BOXES[0].collidepoint(mouse_x, mouse_y):
+            return self.PLAY
+        if self.EDITOR_TEXTS_BOXES[1].collidepoint(mouse_x, mouse_y):
+            return self.EDIT
+        if self.EDITOR_TEXTS_BOXES[2].collidepoint(mouse_x, mouse_y):
+            return self.DELETE
+        if self.add_rect.collidepoint(mouse_x, mouse_y):
+            return self.ADD
+
+        if self.editor_left_rect:
+            if self.editor_left_rect.collidepoint(mouse_x, mouse_y):
+                return self.LEVEL_LEFT
+        if self.editor_right_rect:
+            if self.editor_right_rect.collidepoint(mouse_x, mouse_y):
+                return self.LEVEL_RIGHT
+
+        return 0
 
 
 class PlayScreen:
@@ -1485,6 +1613,9 @@ while True:
     debug.debug(main_menu.grow_frame)
     debug.debug(main_menu.mouse_arrow)
     debug.debug(main_menu.mouse_level)
+    debug.debug(main_menu.selected_level)
+    debug.debug(editor.editor.undos)
+
     debug.draw(final_display)
 
     # if events.mouse.held:

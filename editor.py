@@ -22,6 +22,8 @@ clock = pygame.time.Clock()
 TAHOMA = pygame.font.SysFont("Tahoma", 10)
 
 TAB_TEXT = graphics.text_wall(("Tab to", "swap"))
+NUMKEYS_TEXT = graphics.text_wall(("Number keys", "to select"))
+UNDO_TEXT = graphics.text_wall(("z to", "undo"))
 
 offset_x = constants.FULL_MIDDLE_INT[0] - (SCREEN_WIDTH // 2)
 offset_y = constants.FULL_MIDDLE_INT[1] - (SCREEN_HEIGHT // 2)
@@ -321,8 +323,8 @@ def draw_tile(surface, layer_num, tile_id, pixel_position):
     levels.draw_debug_tile(surface, layer_num, tile_id, pixel_position)
 
 
-class UndoState:
-    """Stores one undo step."""
+class TilesUndo:
+    """Stores an undo step that changed the tile grid."""
     def __init__(self, change_grid):
         changes = []
         for layer in range(levels.LAYER_COUNT):
@@ -338,9 +340,23 @@ class UndoState:
         return repr(self.changes)
 
 
+class StartEndUndo:
+    START = 1
+    END = 2
+
+    def __init__(self, kind, old_tile, new_tile, replaced_tiles):
+        """Replaced tiles is a tuple containing the replaced tile for
+        each layer.
+        """
+        self.kind = kind
+        self.old_tile = old_tile
+        self.new_tile = new_tile
+        self.replaced_tiles = replaced_tiles
+
+
 class Editor:
     TOOLBOX_TOP = SCREEN_HEIGHT - 80
-    TOOLBOX_LEFT = 225
+    TOOLBOX_LEFT = 185
     TOOLBOX_TILE_WIDTH = constants.TILE_WIDTH + 5
     TOOLBOX_TILE_HEIGHT = constants.TILE_HEIGHT + 5
     SHELLS_TOP = 30
@@ -426,7 +442,7 @@ class Editor:
 
         if events.mouse.released:
             if self.changed:
-                self.add_undo(self.changes_grid)
+                self.add_tiles_undo(self.changes_grid)
                 self.reset_changes_grid()
 
             mouse_button = self.buttons.touch_mouse
@@ -458,11 +474,17 @@ class Editor:
                     self.shell_left(shell_num)
 
             if self.selected_single_place():
+                mouse_x = events.mouse.position[0] - offset_x
+                mouse_y = events.mouse.position[1] - offset_y
+                mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
+
                 if self.selected_tile == levels.BLOCKS_START:
-                    self.change_start()
+                    self.add_start_undo(mouse_tile)
+                    self.change_start(mouse_tile)
 
                 elif self.selected_tile == levels.BLOCKS_END:
-                    self.change_end()
+                    self.add_end_undo(mouse_tile)
+                    self.change_end(mouse_tile)
 
         if events.mouse.held:
             if not self.selected_single_place():
@@ -490,34 +512,36 @@ class Editor:
                 return True
         return False
 
-    def change_start(self):
-        mouse_x = events.mouse.position[0] - offset_x
-        mouse_y = events.mouse.position[1] - offset_y
-        mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
-        if not mouse_tile:
+    def change_start(self, tile_position):
+        if not tile_position:
             return
+
+        for layer in range(2):
+            layered_position = (layer, tile_position[0], tile_position[1])
+            self.change_tile(levels.EMPTY, layered_position)
 
         old_start = self.level.start_tile
         rect = levels.tile_rect(levels.tile_pixel_position(old_start))
         pygame.draw.rect(self.level_surface, constants.TRANSPARENT, rect)
 
-        self.level.start_tile = mouse_tile
-        rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
+        self.level.start_tile = tile_position
+        rect = levels.tile_rect(levels.tile_pixel_position(tile_position))
         pygame.draw.rect(self.level_surface, levels.DEBUG_START_COLOR, rect)
 
-    def change_end(self):
-        mouse_x = events.mouse.position[0] - offset_x
-        mouse_y = events.mouse.position[1] - offset_y
-        mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
-        if not mouse_tile:
+    def change_end(self, tile_position):
+        if not tile_position:
             return
+
+        for layer in range(2):
+            layered_position = (layer, tile_position[0], tile_position[1])
+            self.change_tile(levels.EMPTY, layered_position)
 
         old_end = self.level.end_tile
         rect = levels.tile_rect(levels.tile_pixel_position(old_end))
         pygame.draw.rect(self.level_surface, constants.TRANSPARENT, rect)
 
-        self.level.end_tile = mouse_tile
-        rect = levels.tile_rect(levels.tile_pixel_position(mouse_tile))
+        self.level.end_tile = tile_position
+        rect = levels.tile_rect(levels.tile_pixel_position(tile_position))
         pygame.draw.rect(self.level_surface, levels.DEBUG_END_COLOR, rect)
 
     def change_layer(self, layer):
@@ -534,6 +558,14 @@ class Editor:
         tab_x = self.TOOLBOX_LEFT - TAB_TEXT.get_width() - 20
         tab_y = self.TOOLBOX_TOP + 3
         self.ui_surface.blit(TAB_TEXT, (tab_x, tab_y))
+
+        numkeys_x = self.TOOLBOX_LEFT + 230
+        numkeys_y = tab_y
+        self.ui_surface.blit(NUMKEYS_TEXT, (numkeys_x, numkeys_y))
+
+        undo_x = 530
+        undo_y = 460
+        self.ui_surface.blit(UNDO_TEXT, (undo_x, undo_y))
 
     def draw_toolbox(self, surface):
         # draws tiles
@@ -675,17 +707,55 @@ class Editor:
                 for row in range(levels.HEIGHT):
                     self.changes_grid[layer][column][row] = -1
 
-    def add_undo(self, changes_grid):
-        self.undos.append(UndoState(changes_grid))
+    def add_tiles_undo(self, changes_grid):
+        self.undos.append(TilesUndo(changes_grid))
+
+    def add_start_undo(self, new_tile):
+        kind = StartEndUndo.START
+        old_tile = self.level.start_tile
+
+        tiles = []
+        for layer in range(2):
+            tiles.append(self.level.layers[layer].tile_at(new_tile))
+        tiles = tuple(tiles)
+
+        self.undos.append(StartEndUndo(kind, old_tile, new_tile, tiles))
+
+    def add_end_undo(self, new_tile):
+        kind = StartEndUndo.END
+        old_tile = self.level.end_tile
+
+        tiles = []
+        for layer in range(2):
+            tiles.append(self.level.layers[layer].tile_at(new_tile))
+        tiles = tuple(tiles)
+
+        self.undos.append(StartEndUndo(kind, old_tile, new_tile, tiles))
 
     def apply_undo(self, undo):
-        for change in undo.changes:
-            self.change_tile(change[0], (change[1], change[2], change[3]))
+        if type(undo) == TilesUndo:
+            for change in undo.changes:
+                self.change_tile(change[0], (change[1], change[2], change[3]))
+
+        elif type(undo) == StartEndUndo:
+            for layer in range(2):
+                position = (layer, undo.old_tile[0], undo.old_tile[1])
+                self.change_tile(levels.EMPTY, position)
+
+            if undo.kind == StartEndUndo.START:
+                self.change_start(undo.old_tile)
+            elif undo.kind == StartEndUndo.END:
+                self.change_end(undo.old_tile)
+
+            for layer in range(2):
+                tile = undo.replaced_tiles[layer]
+                position = (layer, undo.new_tile[0], undo.new_tile[1])
+                self.change_tile(tile, position)
 
     def undo(self):
         if self.undos:
             self.apply_undo(self.undos[-1])
-            self.undos.pop(-1)
+            del self.undos[-1]
 
 
 # MENU = 0
