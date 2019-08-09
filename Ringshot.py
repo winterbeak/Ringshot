@@ -39,7 +39,7 @@ SCREEN_HEIGHT = constants.SCREEN_HEIGHT
 
 pygame.init()
 pygame.display.set_caption("Ringshot")
-final_display = pygame.display.set_mode(FULL_SIZE)
+final_display = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 clock = pygame.time.Clock()
 
@@ -74,6 +74,10 @@ intro_text_x = constants.SCREEN_MIDDLE[0] - intro_text.get_width() // 2 + 1
 intro_text_y = constants.SCREEN_MIDDLE[1] + 25
 
 menu_temp_surface = graphics.new_surface(constants.SCREEN_SIZE)
+
+file = open("Volume Storage.txt", 'r')
+sound.volume_control.set_volume(float(file.readline()))
+file.close()
 
 
 def render_level_number(number):
@@ -143,6 +147,10 @@ class MenuScreen:
     ADD_WIDTH = ADD_TEXT.get_width()
     ADD_HEIGHT = ADD_TEXT.get_height()
 
+    EDITOR_SUBTITLE = graphics.load_image("editor_subtitle")
+    EDITOR_SUBTITLE_X = (FULL_WIDTH - EDITOR_SUBTITLE.get_width()) // 2
+    EDITOR_SUBTITLE_Y = SCREEN_TOP - 20
+
     EDITOR_TEXTS = (graphics.textify("Play"), graphics.textify("Edit"),
                     graphics.textify("Delete"), graphics.textify("Move Left"),
                     graphics.textify("Move Right"))
@@ -186,10 +194,18 @@ class MenuScreen:
 
     CREDITS_TEXT = graphics.text_wall(CREDITS_STRINGS)
     CREDITS_X = (FULL_WIDTH - CREDITS_TEXT.get_width()) // 2
-    CREDITS_Y = FULL_HEIGHT // 2 - 10
+    CREDITS_Y = SCREEN_TOP + 50
 
     CREDITS_SUBTITLE_X = (FULL_WIDTH - CREDITS_SUBTITLE.get_width()) // 2
     CREDITS_SUBTITLE_Y = CREDITS_Y - 70
+
+    VOLUME_TEXT = graphics.textify("Volume")
+    VOLUME_TEXT_X = SCREEN_LEFT + 100
+    VOLUME_TEXT_Y = SCREEN_TOP + 450
+
+    VOLUME_RECT = pygame.Rect(VOLUME_TEXT_X + 100, VOLUME_TEXT_Y,
+                              200, VOLUME_TEXT.get_height())
+    VOLUME_RADIUS = 6
 
     def __init__(self):
         self.arrow_y_offset = 0.0
@@ -240,7 +256,10 @@ class MenuScreen:
         self.exit_fading = True
         self.exit_fade_delay = 0
 
-        self.volume_text = graphics.textify("Volume")
+        volume = sound.volume_control.volume
+        total = self.VOLUME_RECT.width - self.VOLUME_RADIUS * 2
+        self.volume_x_offset = total * volume + self.VOLUME_RADIUS
+        self.on_volume_slider = False
 
         self.switch_to_editor = False
         self.last_editor_level = levels.count_levels()
@@ -266,7 +285,7 @@ class MenuScreen:
     def update(self):
         if self.exit_fading and graphics.fader.alpha == 0:
             if self.exit_fade_delay == 30:
-                events.quit_program()
+                events.exit_program = True
 
             self.exit_fade_delay += 1
 
@@ -348,7 +367,32 @@ class MenuScreen:
 
                 if self.editor_button != 0 and not self.disable_clicking:
                     if self.previous_frame_editor_button != self.editor_button:
-                        sound.normal_scale.play_random()
+                        selected = self.selected_level != -1
+                        add_exception = self.editor_button == self.ADD
+                        if selected or add_exception:
+                            sound.normal_scale.play_random()
+
+            elif self.page == self.CREDITS:
+                mouse_x, mouse_y = events.mouse.position
+
+                if events.mouse.clicked:
+                    if self.VOLUME_RECT.collidepoint(mouse_x, mouse_y):
+                        self.on_volume_slider = True
+
+                if events.mouse.released:
+                    self.on_volume_slider = False
+
+                if self.on_volume_slider:
+                    x = mouse_x - self.VOLUME_RECT.left
+                    if x < self.VOLUME_RADIUS:
+                        x = self.VOLUME_RADIUS
+                    elif x > self.VOLUME_RECT.width - self.VOLUME_RADIUS:
+                        x = self.VOLUME_RECT.width - self.VOLUME_RADIUS
+                    self.volume_x_offset = x
+
+                    value = x - self.VOLUME_RADIUS
+                    total = self.VOLUME_RECT.width - self.VOLUME_RADIUS * 2
+                    sound.volume_control.set_volume(value / total)
 
         else:
             self.mouse_level = -1
@@ -612,6 +656,19 @@ class MenuScreen:
         y = self.CREDITS_SUBTITLE_Y + y_offset
         surface.blit(self.CREDITS_SUBTITLE, (x, y))
 
+        x = self.VOLUME_TEXT_X + x_offset
+        y = self.VOLUME_TEXT_Y + y_offset
+        surface.blit(self.VOLUME_TEXT, (x, y))
+
+        x1 = self.VOLUME_RECT.left + self.VOLUME_RADIUS + x_offset
+        x2 = self.VOLUME_RECT.right - self.VOLUME_RADIUS + x_offset
+        y = self.VOLUME_RECT.top + self.VOLUME_RECT.height // 2 + y_offset
+        pygame.draw.line(surface, (50, 50, 50), (x1, y), (x2, y), 6)
+
+        x = int(self.VOLUME_RECT.left + self.volume_x_offset + x_offset)
+        y = int(y) + 1
+        pygame.draw.circle(surface, constants.WHITE, (x, y), self.VOLUME_RADIUS)
+
         # x = self.LOGO_BIRD_X + x_offset
         # y = self.LOGO_BIRD_Y + y_offset
         # surface.blit(logo_bird.get_now_frame(), (x, y))
@@ -659,17 +716,15 @@ class MenuScreen:
             layer.draw_thumbnail(surface, (x, y), constants.WHITE, 3)
 
             for text_num, text in enumerate(self.EDITOR_TEXTS):
-                if text_num + 1 == self.LEVEL_LEFT:
-                    if selected_level <= LAST_LEVEL + 1:
-                        continue
-                elif text_num + 1 == self.LEVEL_RIGHT:
-                    if selected_level >= self.last_editor_level - 1:
-                        continue
                 x = self.EDITOR_TEXTS_X[text_num] + x_offset
                 y = self.EDITOR_TEXTS_Y[text_num] + y_offset
                 if self.editor_button - 1 == text_num:
                     y += 3
                 surface.blit(text, (x, y))
+
+        x = self.EDITOR_SUBTITLE_X + x_offset
+        y = self.EDITOR_SUBTITLE_Y + y_offset
+        surface.blit(self.EDITOR_SUBTITLE, (x, y))
 
         x = self.EDITOR_NOTE_X + x_offset
         y = self.EDITOR_NOTE_Y + y_offset
@@ -1194,7 +1249,7 @@ class LevelTransition:
             self.done = True
 
         if self.frame == self.PAUSE_LAST:
-            self.sound_whoosh.play()
+            sound.play(self.sound_whoosh)
 
         self.frame += 1
 
@@ -1442,6 +1497,9 @@ while True:
     sound.update()
     debug.debug(pygame.mixer.music.get_pos())
 
+    if events.exit_program:
+        break
+
     if current_screen == PLAY:
         play_screen.update()
         play_screen.draw(final_display)
@@ -1580,3 +1638,7 @@ while True:
     #     screen_update(2)
     # else:
     screen_update(60)
+
+file = open("Volume Storage.txt", 'w')
+file.write(str(sound.volume_control.volume))
+file.close()

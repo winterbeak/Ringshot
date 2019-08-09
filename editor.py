@@ -16,8 +16,8 @@ SCREEN_HEIGHT = 600
 SCREEN_SIZE = (SCREEN_WIDTH, SCREEN_HEIGHT)
 
 pygame.init()
-final_display = pygame.display.set_mode(SCREEN_SIZE)
-clock = pygame.time.Clock()
+# final_display = pygame.display.set_mode(SCREEN_SIZE)
+# clock = pygame.time.Clock()
 
 TAHOMA = pygame.font.SysFont("Tahoma", 10)
 
@@ -29,10 +29,10 @@ offset_x = constants.FULL_MIDDLE_INT[0] - (SCREEN_WIDTH // 2)
 offset_y = constants.FULL_MIDDLE_INT[1] - (SCREEN_HEIGHT // 2)
 
 
-def screen_update():
-    pygame.display.flip()
-    final_display.fill(constants.BLACK)
-    clock.tick(constants.FPS)
+# def screen_update():
+#     pygame.display.flip()
+#     final_display.fill(constants.BLACK)
+#     clock.tick(constants.FPS)
 
 
 class Button:
@@ -242,7 +242,7 @@ class MainMenu:
                     self.selected_level_button = self.buttons.touch_mouse
                     self.buttons.select(self.selected_level_button)
 
-        self.buttons.draw(final_display)
+        # self.buttons.draw(final_display)
 
     def change_page(self, page):
         """Switches the menu page to the specified page."""
