@@ -481,13 +481,14 @@ class Editor:
                 mouse_y = events.mouse.position[1] - offset_y
                 mouse_tile = levels.grid_tile_position((mouse_x, mouse_y))
 
-                if self.selected_tile == levels.BLOCKS_START:
-                    self.add_start_undo(mouse_tile)
-                    self.change_start(mouse_tile)
+                if mouse_tile:
+                    if self.selected_tile == levels.BLOCKS_START:
+                        self.add_start_undo(mouse_tile)
+                        self.change_start(mouse_tile)
 
-                elif self.selected_tile == levels.BLOCKS_END:
-                    self.add_end_undo(mouse_tile)
-                    self.change_end(mouse_tile)
+                    elif self.selected_tile == levels.BLOCKS_END:
+                        self.add_end_undo(mouse_tile)
+                        self.change_end(mouse_tile)
 
         if events.mouse.held:
             if not self.selected_single_place():

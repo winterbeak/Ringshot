@@ -10,7 +10,7 @@ import constants
 import events
 import graphics
 import geometry
-import debug
+# import debug
 
 import ball
 import levels
@@ -39,6 +39,7 @@ SCREEN_HEIGHT = constants.SCREEN_HEIGHT
 
 pygame.init()
 pygame.display.set_caption("Ringshot")
+pygame.display.set_icon(pygame.image.load(os.path.join("images", "icon_large.png")))
 final_display = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 clock = pygame.time.Clock()
@@ -125,7 +126,7 @@ class MenuScreen:
     ZOOM_A /= ZOOM_LENGTH ** 2
 
     EDITOR_WIDTH = 400
-    EDITOR_HEIGHT = 400
+    EDITOR_HEIGHT = 350
     EDITOR_LEVELS_IN_ROW = 9
     EDITOR_LEVELS_IN_COLUMN = 9
     EDITOR_HORIZONTAL_SPACING = EDITOR_WIDTH // (EDITOR_LEVELS_IN_ROW - 1)
@@ -149,7 +150,7 @@ class MenuScreen:
 
     EDITOR_SUBTITLE = graphics.load_image("editor_subtitle")
     EDITOR_SUBTITLE_X = (FULL_WIDTH - EDITOR_SUBTITLE.get_width()) // 2
-    EDITOR_SUBTITLE_Y = SCREEN_TOP - 20
+    EDITOR_SUBTITLE_Y = SCREEN_TOP
 
     EDITOR_TEXTS = (graphics.textify("Play"), graphics.textify("Edit"),
                     graphics.textify("Delete"), graphics.textify("Move Left"),
@@ -194,7 +195,7 @@ class MenuScreen:
 
     CREDITS_TEXT = graphics.text_wall(CREDITS_STRINGS)
     CREDITS_X = (FULL_WIDTH - CREDITS_TEXT.get_width()) // 2
-    CREDITS_Y = SCREEN_TOP + 50
+    CREDITS_Y = SCREEN_TOP + 70
 
     CREDITS_SUBTITLE_X = (FULL_WIDTH - CREDITS_SUBTITLE.get_width()) // 2
     CREDITS_SUBTITLE_Y = CREDITS_Y - 70
@@ -239,6 +240,7 @@ class MenuScreen:
 
         self.grow_frame = 0
         self.grow_course = False
+        self.pre_grow = False
         self.grow_radius = 0.0
         self.target_radius = 0.0
         self.grow_a = 0.0
@@ -253,7 +255,8 @@ class MenuScreen:
         self.show_credits = False
         self.disable_clicking = False
 
-        self.exit_fading = True
+        self.exit_fading = False
+        self.exit_volume = 0.0
         self.exit_fade_delay = 0
 
         volume = sound.volume_control.volume
@@ -291,6 +294,8 @@ class MenuScreen:
 
         if events.keys.pressed_key == pygame.K_ESCAPE:
             if not self.disable_clicking:
+                self.exit_fading = True
+                self.exit_volume = sound.volume_control.volume
                 graphics.fader.fade_to(0)
                 sound.volume_control.fade_to(0.0)
 
@@ -317,6 +322,7 @@ class MenuScreen:
                     self.level_alpha = 255
             else:
                 self.grow_course = False
+                self.show_arrows = True
             self.grow_frame += 1
 
             return
@@ -559,7 +565,7 @@ class MenuScreen:
 
     def draw_level_select(self, surface, x_offset=0, y_offset=0):
         last_level = last_unlocked
-        if self.grow_course:
+        if self.pre_grow or self.grow_course:
             last_level -= 1
             color = self.SHELL_COLORS[last_level // 18 + 1]
             position = constants.FULL_MIDDLE_INT
@@ -601,7 +607,7 @@ class MenuScreen:
             else:
                 hovered_level = self.mouse_level
 
-            if not self.grow_course and level == hovered_level:
+            if not (self.pre_grow or self.grow_course) and level == hovered_level:
                 text_y += 3
 
                 # Draws a circle around the selected level
@@ -809,7 +815,7 @@ class MenuScreen:
 
     def init_grow_course(self):
         previous_course = (last_unlocked - 2) // 18
-        self.grow_course = True
+        self.pre_grow = True
         self.grow_frame = 0
         self.level_alpha = 0
         self.grow_radius = self.CIRCLE_RADII[previous_course + 1]
@@ -817,6 +823,10 @@ class MenuScreen:
 
         self.grow_a = float(self.grow_radius - self.target_radius)
         self.grow_a /= (self.PAUSE_LAST - self.GROW_LAST) ** 2
+
+    def start_grow_course(self):
+        self.pre_grow = False
+        self.grow_course = True
 
     def update_menu_buttons(self):
         # Detect collision with mouse
@@ -1352,7 +1362,7 @@ class LevelTransition:
         self.previous_screen = MENU
         self.next_screen = PLAY
 
-        if main_menu.selected_level < LAST_LEVEL:
+        if main_menu.selected_level <= LAST_LEVEL:
             from_point = main_menu.level_center(main_menu.selected_level)
 
             menu_course = main_menu.selected_level // LEVELS_PER_COURSE
@@ -1495,7 +1505,7 @@ sound.play_music()
 while True:
     events.update()
     sound.update()
-    debug.debug(pygame.mixer.music.get_pos())
+    # debug.debug(pygame.mixer.music.get_pos())
 
     if events.exit_program:
         break
@@ -1516,7 +1526,7 @@ while True:
 
             if check_level_menu_transition():
                 if play_screen.pause_exit:
-                    if play_screen.level_num < LAST_LEVEL:
+                    if play_screen.level_num <= LAST_LEVEL:
                         main_menu.page = main_menu.LEVEL_SELECT
                         transition.init_level_to_menu()
                     else:
@@ -1547,9 +1557,6 @@ while True:
                         save_data = open("Easily Editable Save Data.txt", 'w')
                         save_data.write(str(last_unlocked) + "\n")
                         save_data.close()
-
-            else:
-                play_screen.pause_exit = False
 
     elif current_screen == MENU:
         main_menu.update()
@@ -1593,10 +1600,20 @@ while True:
                 current_screen = PLAY
                 if events.mouse.held:
                     play_screen.slowmo_factor = play_screen.SLOWMO_MAX
+
             elif transition.type == transition.LEVEL_TO_MENU:
+                if play_screen.pause_exit:
+                    play_screen.pause_exit = False
+                    main_menu.show_arrows = True
+                else:
+                    if play_screen.level_num < LAST_LEVEL:
+                        main_menu.start_grow_course()
+                    else:
+                        main_menu.show_arrows = True
+
                 current_screen = MENU
                 main_menu.disable_clicking = False
-                main_menu.show_arrows = True
+
             graphics.clear_ripples()
 
     elif current_screen == EDITOR:
@@ -1625,20 +1642,26 @@ while True:
     graphics.fader.update()
     graphics.fader.draw(final_display)
 
-    debug.debug(clock.get_fps())
-    debug.debug(current_screen)
-    debug.debug(main_menu.grow_frame)
-    debug.debug(main_menu.mouse_arrow)
-    debug.debug(main_menu.mouse_level)
-    debug.debug(main_menu.selected_level)
-
-    debug.draw(final_display)
+    # debug.debug(clock.get_fps())
+    # debug.debug(current_screen)
+    # debug.debug(main_menu.grow_frame)
+    # debug.debug(main_menu.mouse_arrow)
+    # debug.debug(main_menu.mouse_level)
+    # debug.debug(main_menu.selected_level)
+    # debug.debug(main_menu.exit_fading)
+    #
+    # debug.draw(final_display)
 
     # if events.mouse.held:
     #     screen_update(2)
     # else:
     screen_update(60)
 
-file = open("Volume Storage.txt", 'w')
-file.write(str(sound.volume_control.volume))
-file.close()
+if main_menu.exit_fading:
+    file = open("Volume Storage.txt", 'w')
+    file.write(str(main_menu.exit_volume))
+    file.close()
+else:
+    file = open("Volume Storage.txt", 'w')
+    file.write(str(sound.volume_control.volume))
+    file.close()

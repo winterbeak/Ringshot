@@ -18,11 +18,6 @@ class KeyHandler:
         self.pressed_key = None
 
 
-def force_quit_program():
-    pygame.quit()
-    sys.exit()
-
-
 exit_program = False
 
 
