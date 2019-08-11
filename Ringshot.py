@@ -1481,22 +1481,22 @@ LOGO_NAME_Y = LOGO_BIRD_Y - 12
 
 graphics.fader.set_alpha(0)
 graphics.fader.fade_to(255)
-# sound.intro_jingle.play()
-#
-# for frame in range(270):
-#     events.update()
-#
-#     final_display.blit(logo_bird.get_now_frame(), (LOGO_BIRD_X, LOGO_BIRD_Y))
-#     final_display.blit(logo_name, (LOGO_NAME_X, LOGO_NAME_Y))
-#
-#     logo_bird.delay_next(9)
-#
-#     if frame == 225:
-#         graphics.fader.fade_to(0)
-#
-#     graphics.fader.update()
-#     graphics.fader.draw(final_display)
-#     screen_update(60)
+sound.intro_jingle.play()
+
+for frame in range(270):
+    events.update()
+
+    final_display.blit(logo_bird.get_now_frame(), (LOGO_BIRD_X, LOGO_BIRD_Y))
+    final_display.blit(logo_name, (LOGO_NAME_X, LOGO_NAME_Y))
+
+    logo_bird.delay_next(9)
+
+    if frame == 225:
+        graphics.fader.fade_to(0)
+
+    graphics.fader.update()
+    graphics.fader.draw(final_display)
+    screen_update(60)
 
 # Game loop
 graphics.fader.fade_to(255)
