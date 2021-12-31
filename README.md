@@ -13,7 +13,7 @@ Rings that shoot rings that shoot rings. A quick-fire slow-mo mouse action puzzl
 - Python 3.5+
 - PyGame 1.9.4+
 
-Run game.py to start the game.
+Run Ringshot.py to start the game.
 
 ## More GIFs
 
